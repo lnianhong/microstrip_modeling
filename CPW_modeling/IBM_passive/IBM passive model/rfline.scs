@@ -1,0 +1,309 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/rfline.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.10 12/10/31 14:35:16
+***********************************************************************
+*
+*   Licensed Materials - Property of IBM
+*  
+*   IBM CONFIDENTIAL
+*   (C) 2012 IBM Corporation 
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+************************************************************************
+*
+*>  IBM BiCMOS-8HP "rfline" Top Metal (AM/MA) Line over DT
+*
+***************************************************************************
+*
+* The transmission line model contains:
+*
+*  1. Four R-L-K networks connected in series to represent 
+*     the variation in inductance and resistance due to skin effect. 
+*     Example of one of such a block is shown below.
+*
+*  2. Oxide capacitances (coxin, coxmid, and coxout) to simulate the capacitance
+*     between the line and the substrate.
+*
+*  3. Substrate capacitances (csxin, csxmid, and csxout) and resistances
+*     (rsxin, rsxmid, and rsxout) to simulate the effect of the conductive
+*     substrate loss.
+*                    
+*                             ______                     
+*               (rin3)       |      |     
+*           +---/\/\/\/\-----|(lin3)|--+
+*    /      |                |______|  |                     
+*    |    / |                          |                              
+*    | k23in|                 ______   |                   
+*    |    \ |   (rin2)       |      |  |   
+*   k13in   +---/\/\/\/\-----|(lin2)|--+
+*    |    / |                |______|  |            
+*    | k12in|                          |                               
+*    |    \ |                 ______   |                 
+* in \      |   (rin1)       |      |  |                   out
+*  o-----+--+---/\/\/\/\-----|(lin1)|--+------o - - - - - o 
+*        |                   |______|  |                 
+*        |                             |                               
+*        |                             |                               
+*        |                             |                               
+*        |                             |                               
+*        |                             |                               
+*      -----                         -----                           
+*      -----(coxin)          (coxmid)-----                  
+*        |                             |                            
+*        +-----+                 +-----+                        
+*        |     |                 |     |                        
+*        |     |                 |     |                         
+*        \     |                 \     |                        
+* (rsxin)/   -----(csxin)        /   -----              
+*        \   -----       (rsxmid)\   -----                    
+*        /     |                 /     |(csxmid)                
+*        |     |                 |     |                        
+*        |     |                 |     |                         
+*  o-----+-----+-----------------+-----+------o - - - - - o 
+*          ref (substrate/groundplane)
+*
+***************************************************************************
+*
+* SYNTAX:
+*
+*  x1 in out ref rfline
+*  +  l      =  100u  // overall length of the transmission line
+*  +  w      =  4u    // width of transmission line
+*  +  ind    = -1     // inductance of the transmission line
+*                     // if ind==-1 then calculate self inductance internally
+*  +  bp     =  6     // Indicator for grounding scheme under transmission line
+*                     // 6=DT lattice (only option)
+*  +  dtemp  =  0     // difference in temperature between line and circuit (C)
+*
+***************************************************************************
+*
+* NOTES:
+*
+*  1. Length can vary continuously from 100um to 1500um
+*
+*  2. Width can vary continuously from 4um to 25um
+*
+*  3. Number of total metal levels (wireopt) includes AM and MA.
+*     Possible values = 211 (LY4+AM), 311 (LY5+AM) or 411 (LY6+AM).
+*			213 (LY4+E1+MA), 313 (LY5+E1+MA) or 413 (LY6+E1+MA).
+*
+*  4. If parameter "ind" is not passed in, the model will
+*     calculate its value internally from the other parameters.
+*
+*  5. Grounding scheme (bp) assumes DT lattice.
+*
+***************************************************************************
+simulator lang=spectre
+*
+subckt rfline ( in out ref )
+parameters
+*
+** rfline default parameters *********************************************
+*
++  l     =  100e-6  // length of the transmission line
++  w     =  4e-6    // width of the line
++  ind   = -1       // inductance of the transmission line
+*                   // if ind==-1 then calculate self inductance internally
++  bp    =  6       // Indicator for grounding scheme under transmission line
+*                   // 6=DT lattice (only option)
++  dtemp =  0       // difference in temperature between line and circuit (C)
+*
+***************************************************************************
+*
+* Deciding on sheet resistance, metal thickness and and temperature coefficient according to wireopt input
+*
++ rsval = ((wireopt==211) || (wireopt==311) || (wireopt==411)) * amrs + ((wireopt==213) || (wireopt==313) || (wireopt==413)) * mars
++ thval = ((wireopt==211) || (wireopt==311) || (wireopt==411)) * amt + ((wireopt==213) || (wireopt==313) || (wireopt==413)) * mat
++ tcoeffval = ((wireopt==211) || (wireopt==311) || (wireopt==411)) * tamrs + ((wireopt==213) || (wireopt==313) || (wireopt==413)) * tmars
+*
++  condsi=1/rsub
+*
+** calculate effective line width *****************************************
++  pw=w + delam * ((wireopt==211) || (wireopt==311) || (wireopt==411)) + delma * ((wireopt==213) || (wireopt==313) || (wireopt==413))
++  pl=l
+*
+** equations used in calculating Rsx and Csx ******************************
++  hoverw=pmsxt/pw
+*
+*  fhw is calculated from fhwl and fhwg as follows:
+*
+*     IF hoverw<1 THEN  fhw=fhwl
+*                 ELSE  fhw=fhwg
+*     END IF
+*
++  fhwl=1/((1/hoverw)+2.42-(0.44*hoverw)+(1-hoverw)**6)
++  fhwg=1/(2*pi)*log((8*hoverw)+(0.25/hoverw))
++  fhw=(hoverw<1)*fhwl+(hoverw>=1)*fhwg
++  eeff=((ersi+1)/2)+((ersi-1)/(2*sqrt(1+(10*hoverw))))
+*
+*  calculate substrate resistance and capacitance *************************
++  pcsx=l*e0*eeff/fhw
++  prsx=1/((l*condsi*(1+(1/sqrt(1+(10*hoverw)))))/(2*fhw))
+*
+** calculate the transmission line to substrate total capacitance in F/m **
++  pheffa=oppcstif+oppcthk+capct+m1t+m1m2t+m2t+m4mqt+mqt+mqlyt+lyt
+*
++  pheffb=	(wireopt==211)*lyamt + (wireopt==311)*(m2m3t+m3t+lyamt) + (wireopt==411)*(m2m3t+m3t+m3m4t+m4t+lyamt)\
++		(wireopt==213)*(lye1t+e1t+e1mat) + (wireopt==313)*(m2m3t+m3t+lye1t+e1t+e1mat) + (wireopt==413)*(m2m3t+m3t+m3m4t+m4t+lye1t+e1t+e1mat)
+*
++  pheff=pheffa+pheffb
+*
++  pcox=2.0*e0*eoxdepo*(0.41222*pw/pheff+0.77770+0.91200*log(1.0+thval/pheff)+0.61317*log(1.0+pw/(thval+pheff)))
+*
+** calculate the effective DC self inductance of the line *****************
++  indval=0.2e-6*l*(log((2*l)/(pw+thval))+0.50049+((pw+thval)/(3*l)))
+* 
+** if inductance value is passed in, scale final self and mutual **********
+** inductances appropriately 
++  lscale=(ind>0)*ind/indval+(ind==-1)*1
+*
+** calculate parameters to determine skin effect networks *****************
+*
+** radius of circular cross section with equivalent self inductance *******
++  prad1=0.2235*(pw+thval)/0.7788
+*
+** maximum frequency of interest is 40GHz *********************************
++  pwmax=2*pi*40e9
++  prho=rsval*thval
+*
+** conductivity of line ***************************************************
++  pcondtl=1/prho
+*
+** DC resistance of rectangular cross-section line ************************
++  prdcrect=pl/pw*rsval
+*
+*  DC resistance of equivalent (for inductance) circular cross-section ****
++  prdc=prho*pl/(pi*prad1**2)
+*
+** skin depth at highest frequency of interest ****************************
++  pdeltamax=sqrt(2/(pwmax*mu0*pcondtl))
+*
+** partitioning coefficient based on skin depth  and equivalent outer radius
++  palphar=0.53*prad1/pdeltamax
+*
+** resistance partitioning coefficient based on palphar and the following relationships:
+** R1=resistance of outer annulus=palphar*Rdc
+** R2=R1/RR 
+** R3=R2/RR==R1/RR^2 .... 
+** Partitioning the cross-section into three subsections requires solving for the roots of:
+** RR^2+RR+(1-PALPHAR)=0, so that the parallel resistance is equivalent to Rdc.
+** The quadratic equation is used to extract the maximum root of the equation to determine RR
++  prr=(sqrt(1-4*(1-palphar))-1)/2
+*
+** resistance of each partition *******************************************
++  pres1=palphar*prdc
++  pres2=pres1/prr
++  pres3=pres2/prr
+*
+** areas of two annuli and central cross-section **************************
++  parea1=prho*pl/pres1
++  parea2=prho*pl/pres2
++  parea3=prho*pl/pres3
+*
+** outer radii of second annulus and inner circular cross-section *********
++  prad2=sqrt((parea2+parea3)/pi)
++  prad3=sqrt(parea3/pi)
+*
+** ratios of inner/outer radii for two annuli *****************************
++  pratio1=prad2/prad1
++  pratio2=prad3/prad2
+*
+** coefficients used to calculate the self inductance of each annulus *****
++  plnez1=-0.1067*pratio1**4+0.3742*pratio1**3-0.5160*pratio1**2-0.0017*pratio1+0.2501
++  plnez2=-0.1067*pratio2**4+0.3742*pratio2**3-0.5160*pratio2**2-0.0017*pratio2+0.2501
+*
+** empirical scale factor to adjust overall inductance ********************
++  plscale=0.96
+*
+** self inductance of each partition **************************************
++  pl1=plscale*2e-7*pl*(log(2*pl/prad1)+plnez1-1)
++  pl2=plscale*2e-7*pl*(log(2*pl/prad2)+plnez2-1)
++  pl3=plscale*2e-7*pl*(log(2*pl/prad3)-0.75)
+*
+** geometric mean distances between the three partitions ******************
++  pgmd13=exp((prad1**2*log(prad1)-prad2**2*log(prad2))/(prad1**2-prad2**2)-0.5)
++  pgmd12=pgmd13
++  pgmd23=exp((prad2**2*log(prad2)-prad3**2*log(prad3))/(prad2**2-prad3**2)-0.5)
+*
+** mutual inductances between the three partitions ************************
++  pm12=plscale*2e-7*pl*(log(pl/pgmd12+sqrt(1+pl**2/pgmd12**2))-sqrt(1+pgmd12**2/pl**2)+pgmd12/pl)
++  pm13=plscale*2e-7*pl*(log(pl/pgmd13+sqrt(1+pl**2/pgmd13**2))-sqrt(1+pgmd13**2/pl**2)+pgmd13/pl)
++  pm23=plscale*2e-7*pl*(log(pl/pgmd23+sqrt(1+pl**2/pgmd23**2))-sqrt(1+pgmd23**2/pl**2)+pgmd23/pl)
+*
+** coupling coefficients between the three partitioned inductances ********
++  pk12t=pm12/sqrt(pl1*pl2)
++  pk13t=pm13/sqrt(pl1*pl3)
++  pk23t=pm23/sqrt(pl2*pl3)
++  pk12=(pk12t<=0.99)*pk12t+(pk12t>0.99)*0.99
++  pk13=(pk13t<=0.99)*pk13t+(pk13t>0.99)*0.99
++  pk23=(pk23t<=0.99)*pk23t+(pk23t>0.99)*0.99
+*
+** resistance of each partition transformed back into cross-sectional shape
++  pr1=palphar*prdcrect
++  pr2=pr1/prr
++  pr3=pr2/prr
+*
+** skin effect network of the first block *********************************
+rin1f    (in f11)      resistor    r=pr1/4   tc1=tcoeffval   trise=dtemp
+lin1f    (f11 f2)      inductor    l=pl1/4*lscale
+rin2f    (in f12)      resistor    r=pr2/4   tc1=tcoeffval   trise=dtemp
+lin2f    (f12 f2)      inductor    l=pl2/4*lscale
+rin3f    (in f13)      resistor    r=pr3/4   tc1=tcoeffval   trise=dtemp
+lin3f    (f13 f2)      inductor    l=pl3/4*lscale
+k12inf   mutual_inductor  ind1=lin1f  ind2=lin2f  coupling=pk12 
+k23inf   mutual_inductor  ind1=lin2f  ind2=lin3f  coupling=pk23 
+k13inf   mutual_inductor  ind1=lin1f  ind2=lin3f  coupling=pk13
+*
+** skin effect network of the second block ********************************
+rout1f   (f2 f31)      resistor    r=pr1/4   tc1=tcoeffval   trise=dtemp
+lout1f   (f31 mid)     inductor    l=pl1/4*lscale
+rout2f   (f2 f32)      resistor    r=pr2/4   tc1=tcoeffval   trise=dtemp
+lout2f   (f32 mid)     inductor    l=pl2/4*lscale
+rout3f   (f2 f33)      resistor    r=pr3/4   tc1=tcoeffval   trise=dtemp
+lout3f   (f33 mid)     inductor    l=pl3/4*lscale
+k12outf  mutual_inductor  ind1=lout1f  ind2=lout2f  coupling=pk12
+k23outf  mutual_inductor  ind1=lout2f  ind2=lout3f  coupling=pk23
+k13outf  mutual_inductor  ind1=lout1f  ind2=lout3f  coupling=pk13
+*
+** skin effect network of the third block *********************************
+rin1s    (mid s11)     resistor    r=pr1/4   tc1=tcoeffval   trise=dtemp
+lin1s    (s11 s2)      inductor    l=pl1/4*lscale
+rin2s    (mid s12)     resistor    r=pr2/4   tc1=tcoeffval   trise=dtemp
+lin2s    (s12 s2)      inductor    l=pl2/4*lscale
+rin3s    (mid s13)     resistor    r=pr3/4   tc1=tcoeffval   trise=dtemp
+lin3s    (s13 s2)      inductor    l=pl3/4*lscale
+k12ins   mutual_inductor  ind1=lin1s  ind2=lin2s  coupling=pk12 
+k23ins   mutual_inductor  ind1=lin2s  ind2=lin3s  coupling=pk23 
+k13ins   mutual_inductor  ind1=lin1s  ind2=lin3s  coupling=pk13
+*
+** skin effect network of the fourth block ********************************
+rout1s   (s2 s31)      resistor    r=pr1/4   tc1=tcoeffval   trise=dtemp
+lout1s   (s31 out)     inductor    l=pl1/4*lscale
+rout2s   (s2 s32)      resistor    r=pr2/4   tc1=tcoeffval   trise=dtemp
+lout2s   (s32 out)     inductor    l=pl2/4*lscale
+rout3s   (s2 s33)      resistor    r=pr3/4   tc1=tcoeffval   trise=dtemp
+lout3s   (s33 out)     inductor    l=pl3/4*lscale
+k12outs  mutual_inductor  ind1=lout1s  ind2=lout2s  coupling=pk12
+k23outs  mutual_inductor  ind1=lout2s  ind2=lout3s  coupling=pk23
+k13outs  mutual_inductor  ind1=lout1s  ind2=lout3s  coupling=pk13
+*
+** substrate loss network *************************************************
+coxinf   (in finsub)   capacitor   c=pcox*l/8
+csxinf   (finsub ref)  capacitor   c=pcsx/8
+rsxinf   (finsub ref)  resistor    r=prsx*8  tc1=trsub   trise=dtemp
+coxmidf  (f2 fmidsub)  capacitor   c=pcox*l/4
+csxmidf  (fmidsub ref) capacitor   c=pcsx/4
+rsxmidf  (fmidsub ref) resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxinc   (mid consub)  capacitor   c=pcox*l/4
+csxinc   (consub ref)  capacitor   c=pcsx/4
+rsxinc   (consub ref)  resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxmids  (s2 smidsub)  capacitor   c=pcox*l/4
+csxmids  (smidsub ref) capacitor   c=pcsx/4
+rsxmids  (smidsub ref) resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxout   (out outsub)  capacitor   c=pcox*l/8
+csxout   (outsub ref)  capacitor   c=pcsx/8
+rsxout   (outsub ref)  resistor    r=prsx*8  tc1=trsub   trise=dtemp
+*
+ends rfline

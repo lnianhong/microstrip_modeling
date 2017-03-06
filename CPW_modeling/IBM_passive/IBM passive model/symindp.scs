@@ -1,0 +1,276 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/symindp.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.2 12/11/15 15:07:38
+***********************************************************************
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2012 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+*
+* The Symindp model contains:
+*
+* 1. Call to indstack subcircuit that models the two symmetric coupled halves of
+*    the spiral.
+* 2. A spiral centertap resistance (rct) that models the resistance of the
+*    connection to the symmetric center of the spiral. This is set to zero if
+*    no centertap connection is present.
+* 3. A high value shunt resistance to ground to provide a DC path to ground from
+*    the node "ct" in case there is no center tap connection.
+* 4. Two capacitors (cprct, csect) that represent the capacitance between the
+*    centertap connection and the primary and secondary halves of the spiral.
+*    These are set to very small values if no centertap connection is present.
+*
+*                                      o ct
+*                                      |
+*                                      +-------------------------------------+
+*                                      |                                     |
+*                                      /                                     |
+*                                      \ rct                                 |
+*                                      /                                     \
+*                      cprct           \          csect               rctref /
+*                        ||            |            ||                       \
+*             +----------||--------+---+---+--------||--------+              /
+*             |          ||        | ctprse|        ||        |              |
+*             |                    o       o                  |              |
+*             |    +------------------------------------+     |              |
+* outpr o-----+---o|outpr        inpr     inse     outse|o----+-----o outse  |
+*                  |                                    |                    |
+*                  |         "indstack subcircuit"      |                    |
+*                  |                                    |                    |
+*                  |                 ref                |                    |
+*                  +------------------------------------+                    |
+*                                      o                                     |
+*                                      |                                     |
+*                                      +-------------------------------------+
+*                                      |
+*                                      o
+*                      ref (substrate/groundplane)
+*******************************************************************************
+*
+* NOTES:
+*
+*  1. Outer dimension (x) may vary from 75um to 300um.
+*
+*  2. Supported spiral widths (w) are variable between 4.24um and 15um     
+*
+*  3. Turn to turn space (s) can be varied between 3um and 5um.
+*
+*  4. Number of turns (n) may vary from 1 to filled-in in 1 turn increments.
+*
+*******************************************************************************
+simulator lang=spectre
+subckt symindp (outpr outse ct ref)
+parameters
++    x      =  250u   // Largest outer dimension of octagonal spiral (m)
++    w      =  10u    // Width of spiral turn (m)
++    s      =  5u     // Turn to turn space (m)
++    n      =  4      // Number of turns
+*                     // 1 turn incr.
++    wu     =  -1u    // Width of spiral centertap connection (m)
+*                     // if not passed-in (or set to -1u)
+*                     // then no spiral center tap connection preesent
++    bp     =  6      // 6 = DT (default)
+*                     // 8 = M1 groundplane
++    dtemp  =  0      // Temperature difference between element and
+*                     // circuit temperature (deg C).
+*
+* element multipliers
++ cmult= 1
++ lmult= 1
++ rmult= 1
++ lenmult= 1
++ px= x*lenmult
++ pw= w*lenmult
++ ps= s*lenmult
++ ppwu= wu*lenmult
++ rxflfrac= 0.20
++ rxeff= oppcstif-2*rxflfrac*oppcstif
++ pcflfrac= 0.20
++ pceff= oppcthk-2*pcflfrac*oppcthk
++ m1flfrac= 0.09
++ m1teff= m1t-2*m1flfrac*m1t
++ m2flfrac= 0.09
++ m2teff= m2t-2*m2flfrac*m2t
++ m3flfrac= 0.09
++ m3teff= m3t-2*m3flfrac*m3t
++ m4flfrac= 0.09
++ m4teff= m4t-2*m4flfrac*m4t
++ mqflfrac= 0.09
++ mqteff= mqt-2*mqflfrac*mqt
++ lyflfrac= 0.00
++ lyteff= lyt-2*lyflfrac*lyt
++ e1flfrac= 0.00
++ e1teff= e1t-2*e1flfrac*e1t
++ maflfrac= 0.00
++ mateff= mat-2*maflfrac*mat
+*
+* bp conversion to bptype
++ bptype= bp
+*
+* Nlev conversion from wireopt
++ nlev= (wireopt==211)*5 + (wireopt==311)*6 + (wireopt==411)*7 + (wireopt==213)*6 + (wireopt==313)*7 + (wireopt==413)*8
+*
+* Last metal, Q level switch settings
++  am= (wireopt==211) || (wireopt==311) || (wireopt==411)
++  dm= (wireopt==213) || (wireopt==313) || (wireopt==413)
+*
+* Calculations of primary and secondary.
+*
++ pprt= (am==1)*amt + (dm==1)*mat
++ pdelpr= (am==1)*delam + (dm==1)*delma
++ pprrs= (am==1)*amrs + (dm==1)*mars
++ temcpr= (am==1)*(amrs*tamrs) + (dm==1)*(mars*tmars)
++ temcprnum= (am==1)*amrs + (dm==1)*mars
++ psect= (am==1)*lyt + (dm==1)*e1t
++ pdelsec= (am==1)*delly + (dm==1)*dele1
++ psecrs= (am==1)*lyrs + (dm==1)*e1rs
++ temcse= (am==1)*(lyrs*tlyrs) + (dm==1)*(e1rs*te1rs)
++ temcsenum= (am==1)*lyrs + (dm==1)*e1rs
++ psecprt= (am==1)*lyamt + (dm==1)*e1mat
+*
+* Calculations of stack height info.
+*
++ h211= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2mqt+mqteff+mqlyt+psect+psecprt+pprt
++ h311= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3mqt+mqteff+mqlyt+psect+psecprt+pprt
++ h411= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3m4t+m4teff+m4mqt+mqteff+mqlyt+psect+psecprt+pprt
+
++ h213= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
++ h313= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
++ h413= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3m4t+m4teff+m4mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
+*
++ phpr= (wireopt==211)*h211+(wireopt==311)*h311+(wireopt==411)*h411+(wireopt==213)*h213+(wireopt==313)*h313+(wireopt==413)*h413 - pprt
++ phsec= phpr-psect-psecprt
+*
+* Calculations of M1 shield stack height.
++ phm1sx= oppcstif+oppcthk+capct+m1t
++ phpreff= phpr-(bp==8)*phm1sx
++ phseceff= phsec-(bp==8)*phm1sx
+*
+* Calculations of Temc. Coefficient
++ ptprrs= temcpr/temcprnum
++ ptsers= temcse/temcsenum
+*
+* PR Parallel Spiral Coefficients
++ ppcprs= e0*4.038/phseceff
++ ppcus= e0*4.038/phseceff
++ ppcpru= e0*4.100/psecprt
++ ppcpruf= e0*4.100*(2*0.388/(pi-2)*log(pi/2)+2*0.388/pi*log(1+pprt/psecprt))
++ ppcprsf= e0*4.038*(2*0.734/(pi-2)*log(pi/2)+2*0.199/pi*log(1+(pprt+psect)/phseceff))
++ ppcusf= e0*4.038*(2*0.741/(pi-2)*log(pi/2)+2*0.373/pi*log(1+psect/phseceff))
++ palphapr= atan((ps-pdelpr)/0.322/phseceff)
++ ppcmprsf= e0*4.038*(0.240*(1-cos(2*palphapr))/(2*palphapr-sin(2*palphapr))*log(2*palphapr/sin(2*palphapr)))
++ pbeta= pi/2-2*palphapr
++ ppcprpr= e0*3.661*(1/pi*log(1+pw/(ps-pdelpr))+0.000/(pi-2)*log(pi/2)+1.230*(pprt+psect)/(ps-pdelpr)+1.496/2*(1-cos(pbeta))/(pbeta-sin(pbeta))*log(pbeta/sin(pbeta)))
++ ppcmpruf= 1e-12*(0.000*pow((phseceff*1e6),2)+-0.000*(phseceff*1e6)+13.406)
++ nummet= 2
+*
+* Centertap resistance
++ pwct= 1.4142*pw+ps
++ plct= (n-1)*(pw+ps)+pw
++ prct= max(1e-5,(ppwu*1e6>0)*plct/pwct*pprrs)
+*
+* Calculate gap distance between two symmetric halves of spiral
++ uspace= 3*1e-6
++ vwithin= 0.6*1e-6
++ ppgap= pwct+2*(uspace+vwithin)
+*
+* Centertap to ground shunt resistance
++ prctgrnd= 1e9
+*
+* Centertap to primary and secondary capacitances
++ numop= (ppwu*1e6>0)*int((n-1)/2)
++ xovarea= pwct*(2*pw+ps)-((pwct-0.8284*pw)/2+ps/2)**2
++ pcspct= max(1e-16,numop*xovarea*ppcpru)
++ pcprct= pcspct/2
++ pcsect= pcspct/2
+*
+rctref ct ref       resistor r= rmult*prctgrnd
+rct ctprse ct       resistor r= rmult*prct
+cprct ctprse outpr capacitor c= cmult*pcprct
+csect ctprse outse capacitor c= cmult*pcsect
+*
+xstack outpr ctprse outse ctprse ref indstack
++ xp= px
++ xs= px
++ wp= pw
++ ws= pw
++ sp= pw+2*ps
++ ss= pw+2*ps
++ np= n/2
++ ns= n/2
++ pgap= ppgap
++ pwu= pw
++ pstack= 4
++ pgrnd= bptype
++ gprs= m1rs
++ tgprs= tm1rs
++ ctrs= m1rs
++ tctrs= tm1rs
++ rsx= rsub
++ trsx= trsub
++ pdtemp= dtemp
++ delpr= (pdelpr*pprt+pdelsec*psect)/(pprt+psect)
++ prrs= 1/(1/pprrs+1/psecrs)
++ prt= (pprt+psecprt+psect)
++ tprrs= (pprrs*ptprrs+psecrs*ptsers)/(pprrs+psecrs)
++ delse= (pdelpr*pprt+pdelsec*psect)/(pprt+psect)
++ sers= 1/(1/pprrs+1/psecrs)
++ sect= (pprt+psecprt+psect)
++ tsers= (pprrs*ptprrs+psecrs*ptsers)/(pprrs+psecrs)
++ delup= pdelsec
++ uprs= psecrs
++ tuprs= ptsers
++ upt= psect
++ cprs= ppcprs
++ cprsf= ppcprsf
++ cmprsf= ppcmprsf
++ cprpr= ppcprpr
++ cpru= ppcpru*(nummet-1)
++ cpruf= ppcpruf
++ cmpruf= ppcmpruf
++ cses= ppcprs
++ csesf= ppcprsf
++ cmsesf= ppcmprsf
++ csese= ppcprpr
++ cprse= ppcprpr
++ cprsef= 1f
++ cmprsef= 1f
++ cus= ppcprs
++ cusf= ppcusf
++ sxthk= pmsxt - ((wireopt==213)*h213 + (wireopt==313)*h313 + (wireopt==413)*h413)
+*
+* optimization coefficients
++ prscrfmin= 0.002
++ prscrfmax= 0.009
++ prscrfa= 0.006
++ prscrfb= -0.001
++ prfb= 3e-09
++ ppowa= 0
++ ppowb= 0
++ pamax= 7000
++ paa= 550
++ pab= 550
++ condsib= 1.0
++ prgptb= 150
++ csxcormax= 0.55
++ csxcorra= 0.0009
++ csxcorrb= 0.326
++ pcmprsb= 1
++ pcmsesb= 1
++ pcofprsb= 1
++ pcofsesb= 1
++ pcoprseb= 1
++ pcmprseb= 1
++ posplx= 0.2 + 0.15*(n>=5)
++ plscrfmax= 0.5
++ plscrfa= 0.2
++ plscrfb= 0.1
++ pcoo= 1 
+*
+ends symindp

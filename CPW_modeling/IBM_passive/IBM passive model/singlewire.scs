@@ -1,0 +1,677 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/singlewire.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.21 13/08/08 09:32:32
+***************************************************************************
+*
+*>  IBM BiCMOS-8HP "singlewire" transmission line
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2013 IBM Corporation 
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+simulator lang=spectre
+subckt singlewire  (va vb vshield)
+parameters 
+* ===============================================
+* Description of BiCMOS8HP singlewire model
+*
+* The basic single microstrip T-line structure is 
+* a metal signal wire above a metallic bottom shield, 
+* with optional side shielding.
+* 
+* This model describes the frequency dependent impedance, 
+* attenuation and phase shift in a high bandwidth.  The 
+* model is implemented in multi-segment RLC filter networks 
+* and is therefore passive by construction.  The model 
+* works both in time and frequency domains in all simulation 
+* analysis types (dc, ac, sp, pss ...).
+*
+* The model considers the standard copper line cheesing process, 
+* and assumes super cheesing for Wg > 50[um]. 
+* ===============================================
+* singlewire input parameters 
+* Description of input parameters
+*
+* bwmax       --> Maximum signal bandwidth used, in GHz.  
+* l           --> Length of the singlewire signal line, in meters.
+* w           --> Width of the signal line, in meters.
+* s           --> Seperation between signal wire and side-shielding, in meters.
+* shieldsads  --> Side shielding parameter; OFF = 0, ON = 1.
+* patternfill --> 0 disables pattern fill modeling, 1 enables it.
+* layerads    --> Metal layer of the single signal wire:  See table immediately below.  
+* overads     --> Metal layer of the bottom shield:  See table immmediately below.
+* customcap   --> 0 disables custom capacitance, 1 enables it.
+* C_cust      --> User provided capacitance per unit length.
+* dtemp       --> Difference between silicon surface and metal layers 
+*                 (assumes all metal layers at same temperature)
+*  
+* NOTES:
+*
+*             wireopt
+*  5AM              | layerads -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 AM=7
+*              211   | overads  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  6AM              | layerads -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 AM=7
+*              311   | overads  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  7AM              | layerads -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 AM=7
+*              411   | overads -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  6DM              | layerads -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 E1=8 MA=9
+*              213   | overads  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  7DM              | layerads -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 MA=9
+*              313   | overads  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  8DM              | layerads -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 MA=9
+*              413   | overads  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------*
+* singlewire default input parameters
++ bwmax       = 200
++ l           = 100.0e-6
++ w           = 4.0e-6
++ s           = 6.0e-6
++ shieldsads  = 0
++ patternfill = 1
++ layerads    = 6
++ overads     = 5
++ customcap   = 0
++ C_cust      = 1.0e-10
++ dtemp       = 0
+* ===============================================
+* Cross-sections of single transmission line
+*
+* Single transmission line without side shielding
+* ===============================================
+*
+*                       W
+*                   <-------->
+*                    --------  ^ 
+*                   |        | |
+*                   |        | | th
+*                   |        | |
+*                    --------  V
+*                              ^
+*                              | h
+*                              V
+*        --------------------------------  ^
+*       |                                | |
+*       |                                | | th_g
+*       |                                | |
+*        --------------------------------  V
+*       <-------------------------------->
+*                        Wg
+*
+*
+* Single transmission line with side shielding
+* ===============================================
+*   
+*
+*          Ws           W            Ws
+*       <------>    <-------->    <------>
+*        ------      --------      ------  ^
+*       |      |  s |        |    |      | |
+*       |      |<-->|        |    |      | | th
+*       |      |    |        |    |      | |
+*        ------      --------      ------  V
+*                                          ^
+*                                          | h
+*                                          V
+*        --------------------------------  ^
+*       |                                | |
+*       |                                | | th_g
+*       |                                | |
+*        --------------------------------  V
+*       <-------------------------------->
+*                        Wg
+* ===============================================
+* singlewire model constants
++ ratio   = 3.14159
++ E0      = 8.8542e-12
++ denfill = 0.45
++ Tref    = 25.0
+*
+* ===============================================
+* Determine mask biases in microns:
+**+  dlw = ( (layerads==2)*delm2+(layerads==3)*delm3+(layerads==4)*delm4+(layerads==5)*delmq+(layerads==6)*delly+(layerads==7)*delam )*1.0e6
+* Conversion of Meters to Microns for input parameters
++ l_MICRONS = l*1.0e+6
++ w_MICRONS = w*1.0e+6 
++ s_MICRONS = s*1.0e+6
+* ===============================================
+* Begin COMMON
+*
+* Begin metal layer stack
+*
++ si_top = 0.0
+*
+* Metal Option : wireopt = 211 (5AM)
++ am5    = wireopt==211
++ m1bot1 = 0.95e-06
++ m1top1 = m1bot1 + m1t
++ m2bot1 = m1top1 + m1m2t
++ m2top1 = m2bot1 + m2t
++ mqbot1 = m2top1 + m2mqt
++ mqtop1 = mqbot1 + mqt
++ lybot1 = mqtop1 + mqlyt
++ lytop1 = lybot1 + lyt
++ ambot1 = lytop1 + lyamt
++ amtop1 = ambot1 + amt
+*
+* Metal Option : wireopt = 311 (6AM)
++ am6    = wireopt==311
++ m1bot2 = 0.95e-06
++ m1top2 = m1bot2 + m1t
++ m2bot2 = m1top2 + m1m2t
++ m2top2 = m2bot2 + m2t
++ m3bot2 = m2top2 + m2m3t
++ m3top2 = m3bot2 + m3t
++ mqbot2 = m3top2 + m3mqt
++ mqtop2 = mqbot2 + mqt
++ lybot2 = mqtop2 + mqlyt
++ lytop2 = lybot2 + lyt
++ ambot2 = lytop2 + lyamt
++ amtop2 = ambot2 + amt
+*
+* Metal Option : wireopt = 411 (7AM)
++ am7    = wireopt==411
++ m1bot3 = 0.95e-06
++ m1top3 = m1bot3 + m1t
++ m2bot3 = m1top3 + m1m2t
++ m2top3 = m2bot3 + m2t
++ m3bot3 = m2top3 + m2m3t
++ m3top3 = m3bot3 + m3t
++ m4bot3 = m3top3 + m3m4t
++ m4top3 = m4bot3 + m4t
++ mqbot3 = m4top3 + m4mqt
++ mqtop3 = mqbot3 + mqt
++ lybot3 = mqtop3 + mqlyt
++ lytop3 = lybot3 + lyt
++ ambot3 = lytop3 + lyamt
++ amtop3 = ambot3 + amt
+*
+* Metal Option : wireopt = 213 (6DM)
++ dm6    = wireopt==213
++ m1bot4 = 0.95e-06
++ m1top4 = m1bot4 + m1t
++ m2bot4 = m1top4 + m1m2t
++ m2top4 = m2bot4 + m2t
++ mqbot4 = m2top4 + m2mqt
++ mqtop4 = mqbot4 + mqt
++ lybot4 = mqtop4 + mqlyt
++ lytop4 = lybot4 + lyt
++ e1bot4 = lytop4 + lye1t
++ e1top4 = e1bot4 + e1t
++ mabot4 = e1top4 + e1mat
++ matop4 = mabot4 + mat
+*
+* Metal Option : wireopt = 313 (7DM)
++ dm7    = wireopt==313
++ m1bot5 = 0.95e-06
++ m1top5 = m1bot5 + m1t
++ m2bot5 = m1top5 + m1m2t
++ m2top5 = m2bot5 + m2t
++ m3bot5 = m2top5 + m2m3t
++ m3top5 = m3bot5 + m3t
++ mqbot5 = m3top5 + m3mqt
++ mqtop5 = mqbot5 + mqt
++ lybot5 = mqtop5 + mqlyt
++ lytop5 = lybot5 + lyt
++ e1bot5 = lytop5 + lye1t
++ e1top5 = e1bot5 + e1t
++ mabot5 = e1top5 + e1mat
++ matop5 = mabot5 + mat
+*
+* Metal Option : wireopt = 413 (8DM)
++ dm8    = wireopt==413
++ m1bot6 = 0.95e-06
++ m1top6 = m1bot6 + m1t
++ m2bot6 = m1top6 + m1m2t
++ m2top6 = m2bot6 + m2t
++ m3bot6 = m2top6 + m2m3t
++ m3top6 = m3bot6 + m3t
++ m4bot6 = m3top6 + m3m4t
++ m4top6 = m4bot6 + m4t
++ mqbot6 = m4top6 + m4mqt
++ mqtop6 = mqbot6 + mqt
++ lybot6 = mqtop6 + mqlyt
++ lytop6 = lybot6 + lyt
++ e1bot6 = lytop6 + lye1t
++ e1top6 = e1bot6 + e1t
++ mabot6 = e1top6 + e1mat
++ matop6 = mabot6 + mat
+*
++ m1bot = m1bot1*am5 + m1bot2*am6 + m1bot3*am7 + m1bot4*dm6 + m1bot5*dm7 + m1bot6*dm8
++ m1top = m1top1*am5 + m1top2*am6 + m1top3*am7 + m1top4*dm6 + m1top5*dm7 + m1top6*dm8
++ m2bot = m2bot1*am5 + m2bot2*am6 + m2bot3*am7 + m2bot4*dm6 + m2bot5*dm7 + m2bot6*dm8
++ m2top = m2top1*am5 + m2top2*am6 + m2top3*am7 + m2top4*dm6 + m2top5*dm7 + m2top6*dm8
++ m3bot =    0.0*am5 + m3bot2*am6 + m3bot3*am7 +    0.0*dm6 + m3bot5*dm7 + m3bot6*dm8
++ m3top =    0.0*am5 + m3top2*am6 + m3top3*am7 +    0.0*dm6 + m3top5*dm7 + m3top6*dm8
++ m4bot =    0.0*am5 +    0.0*am6 + m4bot3*am7 +    0.0*dm6 +    0.0*dm7 + m4bot6*dm8
++ m4top =    0.0*am5 +    0.0*am6 + m4top3*am7 +    0.0*dm6 +    0.0*dm7 + m4top6*dm8
++ mqbot = mqbot1*am5 + mqbot2*am6 + mqbot3*am7 + mqbot4*dm6 + mqbot5*dm7 + mqbot6*dm8
++ mqtop = mqtop1*am5 + mqtop2*am6 + mqtop3*am7 + mqtop4*dm6 + mqtop5*dm7 + mqtop6*dm8
++ lybot = lybot1*am5 + lybot2*am6 + lybot3*am7 + lybot4*dm6 + lybot5*dm7 + lybot6*dm8
++ lytop = lytop1*am5 + lytop2*am6 + lytop3*am7 + lytop4*dm6 + lytop5*dm7 + lytop6*dm8
++ ambot = ambot1*am5 + ambot2*am6 + ambot3*am7
++ amtop = amtop1*am5 + amtop2*am6 + amtop3*am7
++ e1bot =                                        e1bot4*dm6 + e1bot5*dm7 + e1bot6*dm8
++ e1top =                                        e1top4*dm6 + e1top5*dm7 + e1top6*dm8
++ mabot =                                        mabot4*dm6 + mabot5*dm7 + mabot6*dm8
++ matop =                                        matop4*dm6 + matop5*dm7 + matop6*dm8
+*
+* End metal layer stack
+* ================================================
+* ================================================
+* Determine the height of the signal layer above the bottom shield (h), 
+* the thickness of the signal layer (th), and the thickness of the 
+* shield (th_g).
+*
++ layerads_bot = m2bot*(layerads == 2) + m3bot*(layerads == 3) + m4bot*(layerads == 4) + mqbot*(layerads == 5) + lybot*(layerads == 6) + ambot*(layerads == 7) + e1bot*(layerads == 8) + mabot*(layerads == 9)
++ layerads_top = m2top*(layerads == 2) + m3top*(layerads == 3) + m4top*(layerads == 4) + mqtop*(layerads == 5) + lytop*(layerads == 6) + amtop*(layerads == 7) + e1top*(layerads == 8) + matop*(layerads == 9)
++ overads_bot  = m1bot*(overads == 1)  + m2bot*(overads == 2)  + m3bot*(overads == 3)  + m4bot*(overads == 4)  + mqbot*(overads == 5)  + lybot*(overads == 6)  + e1bot*(overads == 8)
++ overads_top  = m1top*(overads == 1)  + m2top*(overads == 2)  + m3top*(overads == 3)  + m4top*(overads == 4)  + mqtop*(overads == 5)  + lytop*(overads == 6)  + e1top*(overads == 8)
+*
++ h_MICRONS    = (layerads_bot - overads_top)*1.0e+6
++ th_MICRONS   = (layerads_top - layerads_bot)*1.0e+6
++ th_g_MICRONS = (overads_top - overads_bot)*1.0e+6
+
+* ================================================
+* ================================================
+* Determine the effective dielectric constants and metal fill parameters.
+*
++ m1_eps_side = 4.078
++ m2_eps_side = 3.6
++ m3_eps_side = 3.6
++ m4_eps_side = 3.6
++ mq_eps_side = 3.6
++ ly_eps_side = 4.1
++ am_eps_side = 4.1
++ e1_eps_side = 4.1
++ ma_eps_side = 4.1
+*	
++ m1_eps_side_over = 4.47*am5 + 4.47*am6 + 4.47*am7 + 4.47*dm6 + 4.47*dm7 + 4.47*dm8
++ m2_eps_side_over = 4.59*am5 + 4.47*am6 + 4.47*am7 + 4.59*dm6 + 4.47*dm7 + 4.47*dm8
++ m3_eps_side_over = 4.47*am5 + 4.59*am6 + 4.47*am7 + 4.47*dm6 + 4.59*dm7 + 4.47*dm8
++ m4_eps_side_over = 4.59*am5 + 4.59*am6 + 4.59*am7 + 4.59*dm6 + 4.59*dm7 + 4.59*dm8
++ mq_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ly_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.14*dm6 + 4.14*dm7 + 4.14*dm8
++ am_eps_side_over = 3.81*am5 + 3.81*am6 + 3.81*am7
++ e1_eps_side_over =                                  4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ma_eps_side_over =                                  3.81*dm6 + 3.81*dm7 + 3.81*dm8
+*
++ m1_bot_4eps = 0.2267*am5 + 0.2267*am6 + 0.2267*am7 + 0.2267*dm6 + 0.2267*dm7 + 0.2267*dm8
++ m1_top_4eps = 0.3035*am5 + 0.3035*am6 + 0.3035*am7 + 0.3035*dm6 + 0.3035*dm7 + 0.3035*dm8
++ m2_bot_4eps = 0.3858*am5 + 0.3858*am6 + 0.3858*am7 + 0.3858*dm6 + 0.3858*dm7 + 0.3858*dm8
++ m2_top_4eps = 0.4747*am5 + 0.4747*am6 + 0.4747*am7 + 0.4747*dm6 + 0.4747*dm7 + 0.4747*dm8
++ m3_bot_4eps = 0.0000*am5 + 0.5571*am6 + 0.5571*am7 + 0.0000*dm6 + 0.5571*dm7 + 0.5571*dm8
++ m3_top_4eps = 0.0000*am5 + 0.6460*am6 + 0.6460*am7 + 0.0000*dm6 + 0.6460*dm7 + 0.6460*dm8
++ m4_bot_4eps = 0.0000*am5 + 0.0000*am6 + 0.7283*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.7283*dm8
++ m4_top_4eps = 0.0000*am5 + 0.0000*am6 + 0.8172*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.8172*dm8
++ mq_bot_4eps = 0.6404*am5 + 0.8117*am6 + 0.9829*am7 + 0.6404*dm6 + 0.8117*dm7 + 0.9829*dm8
++ mq_top_4eps = 0.7932*am5 + 0.9644*am6 + 1.1357*am7 + 0.7932*dm6 + 0.9644*dm7 + 1.1357*dm8
++ ly_bot_4eps = 1.7861*am5 + 1.9574*am6 + 2.1286*am7 + 1.7861*dm6 + 1.9574*dm7 + 2.1286*dm8
++ ly_top_4eps = 2.0910*am5 + 2.2622*am6 + 2.4335*am7 + 2.0910*dm6 + 2.2622*dm7 + 2.4335*dm8
++ am_bot_4eps = 3.0809*am5 + 3.2521*am6 + 3.4234*am7
++ am_top_4eps = 4.0456*am5 + 4.2168*am6 + 4.3880*am7
++ e1_bot_4eps =                                        3.0809*dm6 + 3.2521*dm7 + 3.4234*dm8
++ e1_top_4eps =                                        3.8055*dm6 + 3.9768*dm7 + 4.1480*dm8
++ ma_bot_4eps =                                        4.7911*dm6 + 4.9624*dm7 + 5.1336*dm8
++ ma_top_4eps =                                        5.7558*dm6 + 5.9271*dm7 + 6.0983*dm8
+*
++ m1_bot_fill = 0.00*am5 + 0.00*am6 + 0.00*am7 + 0.00*dm6 + 0.00*dm7 + 0.00*dm8
++ m1_top_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_bot_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_top_fill = 0.61*am5 + 0.61*am6 + 0.61*am7 + 0.61*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_bot_fill = 0.00*am5 + 0.61*am6 + 0.61*am7 + 0.00*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_top_fill = 0.00*am5 + 0.93*am6 + 0.93*am7 + 0.00*dm6 + 0.93*dm7 + 0.93*dm8
++ m4_bot_fill = 0.00*am5 + 0.00*am6 + 0.93*am7 + 0.00*dm6 + 0.00*dm7 + 0.93*dm8
++ m4_top_fill = 0.00*am5 + 0.00*am6 + 1.25*am7 + 0.00*dm6 + 0.00*dm7 + 1.25*dm8
++ mq_bot_fill = 0.61*am5 + 0.93*am6 + 1.25*am7 + 0.61*dm6 + 0.93*dm7 + 1.25*dm8
++ mq_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ am_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ am_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ e1_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ e1_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
+*
++ layerads_bot_4eps = m2_bot_4eps*(layerads == 2) + m3_bot_4eps*(layerads == 3) + m4_bot_4eps*(layerads == 4) + mq_bot_4eps*(layerads == 5) + ly_bot_4eps*(layerads == 6) + am_bot_4eps*(layerads == 7) + e1_bot_4eps*(layerads == 8) + ma_bot_4eps*(layerads == 9)
++ overads_top_4eps  = m1_top_4eps*(overads == 1)  + m2_top_4eps*(overads == 2)  + m3_top_4eps*(overads == 3)  + m4_top_4eps*(overads == 4)  + mq_top_4eps*(overads == 5)  + ly_top_4eps*(overads == 6) + e1_top_4eps*(overads == 8)
+*
++ h_by_eps = layerads_bot_4eps - overads_top_4eps
+*
++ Epsilon_r = h_MICRONS/h_by_eps
++ eps_side = m1_eps_side*(layerads == 1) + m2_eps_side*(layerads == 2) + m3_eps_side*(layerads == 3) + m4_eps_side*(layerads == 4) + mq_eps_side*(layerads == 5) + ly_eps_side*(layerads == 6) + am_eps_side*(layerads == 7)  + e1_eps_side*(layerads == 8) + ma_eps_side*(layerads == 9)
++ eps_side_over       = m1_eps_side_over*(layerads == 1) + m2_eps_side_over*(layerads == 2) + m3_eps_side_over*(layerads == 3) + m4_eps_side_over*(layerads == 4) + mq_eps_side_over*(layerads == 5) + ly_eps_side_over*(layerads == 6) + am_eps_side_over*(layerads == 7) + e1_eps_side_over*(layerads == 8) + ma_eps_side_over*(layerads == 9)
++ Epsilon_r_side      = eps_side
++ Epsilon_r_side_over = eps_side_over
+*
++ layerads_bot_fill   = m1_bot_fill*(layerads == 1) + m2_bot_fill*(layerads == 2) + m3_bot_fill*(layerads == 3) + m4_bot_fill*(layerads == 4) + mq_bot_fill*(layerads == 5) + ly_bot_fill*(layerads == 6) + am_bot_fill*(layerads == 7) + e1_bot_fill*(layerads == 8) + ma_bot_fill*(layerads == 9)
++ overads_top_fill    = m1_top_fill*(overads == 1)  + m2_top_fill*(overads == 2)  + m3_top_fill*(overads == 3)  + m4_top_fill*(overads == 4)  + mq_top_fill*(overads == 5)  + ly_top_fill*(overads == 6)  + am_top_fill*(overads == 7) + e1_top_fill*(overads == 8) + ma_top_fill*(overads == 9)
+*
++ h_fill = layerads_bot_fill - overads_top_fill
+*
++ wfill = -1.0*(layerads == 1) + 0.9*(layerads == 2 || layerads == 3 || layerads == 4) + 1.2*(layerads == 5) + 0.0*(layerads == 6) + 0.0*(layerads == 7) + 0.0*(layerads == 8)+ 0.0*(layerads == 9)
++ sfill = -2.0*(layerads == 1) + 0.3*(layerads == 2 || layerads == 3 || layerads == 4) + 0.4*(layerads == 5) + -1.0*(layerads == 6) + -1.0*(layerads == 7) + -1.0*(layerads == 8) + -1.0*(layerads == 9)
++ sf2sh = -1.0*(layerads == 1) + 0.4*(layerads == 2 || layerads == 3 || layerads == 4) + 0.8*(layerads == 5) + -1.0*(layerads == 6) + -1.0*(layerads == 7) + -1.0*(layerads == 8) + -1.0*(layerads == 9)
++ denfillc = (denfill*(wfill - sfill)/(wfill*(layerads == 2 || layerads == 3 || layerads == 4 || layerads == 5) + -1.0*(layerads == 1 || layerads == 6 || layerads == 7 || layerads == 8 || layerads == 9))*(layerads == 2 || layerads == 3 || layerads == 4 || layerads == 5)) + 0.0*(layerads == 6 || layerads == 7 || layerads == 8 || layerads == 9)
+*
+* ===============================================
+* ===============================================
+* Calculation of feedback parameters, including wire widths.
+*
++ ELB = -0.0115*(layerads == 1) + 0.00*(layerads == 2 || layerads == 3 || layerads == 4) + -0.022*(layerads == 5) + 0.0000*(layerads == 6) + 0.00*(layerads == 7) + 0.00*(layerads == 8) + 0.00*(layerads == 9)
++ PLB =  0.0000*(layerads == 1) + 0.01*(layerads == 2 || layerads == 3 || layerads == 4) +  0.010*(layerads == 5) + 0.0625*(layerads == 6) + 0.00*(layerads == 8) + (-1*0.08)*(((layerads == 7) + (layerads == 9))*(s_MICRONS >= 12.5)) + (-1*(((0.028*s_MICRONS)-0.19)/2))*(((layerads == 7) + (layerads == 9))*(s_MICRONS < 12.5))
++ Wo = 1.2*(layerads == 1) + 1.8*(layerads == 2 || layerads == 3 || layerads == 4) + 2.4*(layerads == 5) + 0*(layerads == 6) + 0*(layerads == 7) + 0*(layerads == 8) + 0*(layerads == 9)
++ Wmin = 0.16*(layerads == 1) + 0.20*(layerads == 2 || layerads == 3 || layerads == 4) + 0.40*(layerads == 5) + 3.88*(layerads == 6) + 3.88*(layerads == 7) + 3.88*(layerads == 8) + 4.24*(layerads == 9)
++ Rsquare = m1rs*(layerads == 1) + m2rs*(layerads == 2) + m3rs*(layerads == 3) + m4rs*(layerads == 4) + mqrs*(layerads == 5) + lyrs*(layerads == 6) + amrs*(layerads == 7) + e1rs*(layerads == 8) + mars*(layerads == 9)
++ TCR = tm1rs*(layerads == 1) + tm2rs*(layerads == 2) + tm3rs*(layerads == 3) + tm4rs*(layerads == 4) + tmqrs*(layerads == 5) + tlyrs*(layerads == 6) + tamrs*(layerads == 7) + te1rs*(layerads == 8) + tmars*(layerads == 9)
+*
++ ELB_g = -0.0115*(overads == 1) + 0.00*(overads == 2 || overads == 3 || overads == 4) + -0.022*(overads == 5) + 0.0000*(overads == 6) + 0.00*(overads == 7) + 0.00*(overads == 8) + 0.00*(overads == 9)
++ PLB_g =  0.0000*(overads == 1) + 0.01*(overads == 2 || overads == 3 || overads == 4) +  0.010*(overads == 5) + 0.0625*(overads == 6) + 0.00*(overads == 8) + (-1*0.08)*(((overads == 7) + (overads == 9))*(s_MICRONS >= 12.5)) +(-1*(((0.028*s_MICRONS)-0.19)/2))*(((overads == 7) + (overads == 9))*(s_MICRONS < 12.5))
++ Wo_g = 1.2*(overads == 1) + 1.8*(overads == 2 || overads == 3 || overads == 4) + 2.4*(overads == 5) + 0*(overads == 6) + 0*(overads == 7) + 0*(overads == 8) + 0*(overads == 9)
++ Wmin_g = 0.16*(overads == 1) + 0.20*(overads == 2 || overads == 3 || overads == 4) + 0.40*(overads == 5) + 3.88*(overads == 6) + 3.88*(overads == 7) + 3.88*(overads == 8) + 4.24*(overads == 9)
++ Rsquare_g = m1rs*(overads == 1) + m2rs*(overads == 2) + m3rs*(overads == 3) + m4rs*(overads == 4) + mqrs*(overads == 5) + lyrs*(overads == 6) + amrs*(overads == 7) + e1rs*(overads == 8) + mars*(overads == 9)
++ TCR_g = tm1rs*(overads == 1) + tm2rs*(overads == 2) + tm3rs*(overads == 3) + tm4rs*(overads == 4) + tmqrs*(overads == 5) + tlyrs*(overads == 6) + tamrs*(overads == 7) + te1rs*(overads == 8) + tmars*(overads == 9)
+*
++ Kslot = 0.5
+*
++ MxPlaneLim = 50
+*
++ ws = Wmin
+*
++ R_sh = (1e15)*(shieldsads == 0) + ((l_MICRONS*Rsquare/(ws + 2*ELB))*(1 + TCR*(temp + dtemp - Tref)))*(shieldsads == 1)
++ wgld = ( (overads==1)*delm1+(overads==2)*delm2+(overads==3)*delm3+(overads==4)*delm4+(overads==5)*delmq+(overads==6)*delly+(overads==8)*dele1)*1.0e6
++ wg_MICRONS = (w_MICRONS + 2*(h_MICRONS + th_MICRONS) + wgld)*(shieldsads == 0) + (w_MICRONS + 2*(s_MICRONS + ws) + wgld)*(shieldsads == 1)
+*
++ w_c = w_MICRONS + 2*ELB + 2*PLB
++ wg_c = wg_MICRONS + 2*ELB_g + 2*PLB_g
+*
++ Wlim = 1.4*(layerads == 1) + 1.4*(layerads == 2 || layerads == 3 || layerads == 4) + 2.4*(layerads == 5) + 0*(layerads == 6) + 0*(layerads == 7) + 0*(layerads == 8) + 0*(layerads == 9)
++ Cheese = 0.7*(layerads == 1) + 0.7*(layerads == 2 || layerads == 3 || layerads == 4) + 0.7*(layerads == 5) + 1*(layerads == 6) + 1*(layerads == 7) + 1*(layerads == 8) + 1*(layerads == 9)
++ superCheese = 0.52*(layerads == 1) + 0.52*(layerads == 2 || layerads == 3 || layerads == 4) + 0.53*(layerads == 5) + 1*(layerads == 6) + 1*(layerads == 7) + 1*(layerads == 8) + 1*(layerads == 9)
++ cheeseK =  (((Wlim != 0) || (w_MICRONS > Wo)) && (w_MICRONS > MxPlaneLim)) ? superCheese : Cheese
++ delta_Whole_CHEESING = ((Wlim == 0) || (w_MICRONS <= Wo)) ? 0 : (cheeseK - 1)*(w_c - Wlim)
+*
++ Wlim_g = 1.4*(overads == 1) + 1.4*(overads == 2 || overads == 3 || overads == 4) + 2.4*(overads == 5) + 0*(overads == 6) + 0*(overads == 7) + 0*(overads == 8) + 0*(overads == 9)
++ Cheese_g = 0.7*(overads == 1) + 0.7*(overads == 2 || overads == 3 || overads == 4) + 0.7*(overads == 5) + 1*(overads == 6) + 1*(overads == 7) + 1*(overads == 8) + 1*(overads == 9)
++ superCheese_g = 0.52*(overads == 1) + 0.52*(overads == 2 || overads == 3 || overads == 4) + 0.53*(overads == 5) + 1*(overads == 6) + 1*(overads == 7) + 1*(overads == 8) + 1*(overads == 9)
++ cheeseK_g              =  (((Wlim_g != 0) || (wg_MICRONS > Wo)) && (wg_MICRONS > MxPlaneLim)) ? superCheese_g : Cheese_g 
++ delta_Whole_g_CHEESING = ((Wlim_g == 0) || (wg_MICRONS <= Wo_g)) ? 0 : (cheeseK_g - 1)*(wg_c - Wlim_g)
+*
++ delta_Whole   = delta_Whole_CHEESING
++ delta_Whole_g = delta_Whole_g_CHEESING
+*
++ w_eff   = w_c + delta_Whole
++ w_eff_g = wg_c + delta_Whole_g
++ Rpath   = l_MICRONS*(Rsquare/w_eff)*(1 + TCR*(temp + dtemp - Tref))
++ R_g     = l_MICRONS*(Rsquare_g/w_eff_g)*(1 + TCR_g*(temp + dtemp - Tref))
++ Rret    = R_g/(1 + 2*R_g/R_sh)
+*
+***************************************************************************************
+* <<< Resistance Equation using for testing (comparing to z2d field solver data) >>> 
+* <<< If DC resistance is desired...use extraction or Design Manual equations    >>>
+* <<< to determine the resistance. This model includes ground return paths in    >>>
+* <<< calculation of resistance.                                                 >>>
+*
++ Rtot = Rpath + Rret
+*
+***************************************************************************************
+* End COMMON
+* ===============================================
+* ===============================================
+* Custom capacitance for single wire
+*
++ Ctot_cust = C_cust*l
+* ===============================================
+* ===============================================
+* Capacitance calculation for single wire without side shielding
+*
++ X11_NOSHIELD = 0.9905*(am5+am6+am7) + 1.1951*(dm6+dm7+dm8)
++ X12_NOSHIELD = 0.9210*(am5+am6+am7) + 0.9510*(dm6+dm7+dm8)
++ X13_NOSHIELD = 1.1851*(am5+am6+am7) + 1.1051*(dm6+dm7+dm8)
++ X14_NOSHIELD = 0.9477
+*    
++ C1_NOSHIELD_NOFILL   = 2*E0*(X11_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X12_NOSHIELD*(2/(pi-2))*log(0.5*pi) + X13_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS)) 
++ ht_MICRONS           = h_MICRONS + th_MICRONS 
++ C2_NOSHIELD_NOFILL   = (2*E0*X14_NOSHIELD*(2/(3*pi))*log(1 + 1.5*w_MICRONS/ht_MICRONS))*(w_MICRONS < 2*th_g_MICRONS) + 2*E0*X14_NOSHIELD*((2/(3*pi))*log(1 + 3*th_g_MICRONS/ht_MICRONS) + (0.5/pi)*log(1 + (w_MICRONS - 2*th_g_MICRONS)/(0.5*ht_MICRONS + 1.5*th_g_MICRONS)))*(w_MICRONS >= 2*th_g_MICRONS)
++ C_NOSHIELD_NOFILL    = (C1_NOSHIELD_NOFILL + C2_NOSHIELD_NOFILL)*Epsilon_r 
++ Ctot_NOSHIELD_NOFILL = C_NOSHIELD_NOFILL*l
+*
+* Capacitance update due to Pattern Fill:
+*
++ coefill1           = (1 - denfill) + denfill * h_MICRONS/(h_MICRONS - h_fill)
++ coefill2           = (1 - denfill) + denfill * h_MICRONS/(h_MICRONS - h_fill - denfill*th_MICRONS)
++ C1_NOSHIELD_FILL   = C1_NOSHIELD_NOFILL*coefill1
++ C2_NOSHIELD_FILL   = C2_NOSHIELD_NOFILL*coefill2
++ C_NOSHIELD_FILL    = (C1_NOSHIELD_FILL + C2_NOSHIELD_FILL)*Epsilon_r 
++ Ctot_NOSHIELD_FILL = C_NOSHIELD_FILL*l
+*
++ Ctot_NOSHIELD = Ctot_NOSHIELD_NOFILL*(patternfill == 0) + Ctot_NOSHIELD_FILL*(patternfill == 1)
+* ===============================================
+* ===============================================
+* Capacitance calculation for single wire with side shielding   
+*
++ Epsilon_r_ratio_SHIELD = 0.5*(Epsilon_r + Epsilon_r_side_over)/Epsilon_r_side   
++ X31_SHIELD = 1.0544*(am5+am6+am7) + 1.1144*(dm6+dm7+dm8)
++ X32_SHIELD = 0.6172*(am5+am6+am7) + 0.7514*(dm6+dm7+dm8)
++ X33_SHIELD = 1.2419 *(am5+am6+am7) + 1.1919*(dm6+dm7+dm8)
++ X34_SHIELD = 0.8353*Epsilon_r_ratio_SHIELD*(am5+am6+am7) + 0.8421*Epsilon_r_ratio_SHIELD*(dm6+dm7+dm8)
++ X35_SHIELD = 1.0279
++ X36_SHIELD = 1.0536*(am5+am6+am7) + 0.9287*(dm6+dm7+dm8)
++ X37_SHIELD = 1.1063 
+*    
++ alfa_SHIELD = 2*atan(0.5*s_MICRONS/h_MICRONS)
++ beta_SHIELD = pi/2 - alfa_SHIELD
+*
++ Cpl_SHIELD_1 = E0*(X31_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Cpl_SHIELD_2 = E0*(X31_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_SHIELD*(2/pi)*log(0.5*s_MICRONS/h_MICRONS))
++ Cpl_SHIELD_3 = E0*(X31_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_SHIELD*(1-cos(alfa_SHIELD))/(alfa_SHIELD-sin(alfa_SHIELD))*log(alfa_SHIELD/sin(alfa_SHIELD)))
++ Cpl_SHIELD_NOFILL = Cpl_SHIELD_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cpl_SHIELD_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cpl_SHIELD_3*(s_MICRONS < 2*h_MICRONS)
+*
++ Cc_SHIELD_1 = E0*(X34_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_SHIELD*(1/(pi-2))*log(0.5*pi))        
++ Cc_SHIELD_2 = E0*(X34_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_SHIELD*(th_MICRONS + h_MICRONS - 0.5*s_MICRONS)/s_MICRONS)
++ Cc_SHIELD_3 = E0*(X34_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_SHIELD*th_MICRONS/s_MICRONS + X37_SHIELD*0.5*(1-cos(beta_SHIELD))/(beta_SHIELD-sin(beta_SHIELD))*log(beta_SHIELD/sin(beta_SHIELD)))
++ Cc_SHIELD_NOFILL = Cc_SHIELD_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cc_SHIELD_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cc_SHIELD_3*(s_MICRONS < 2*h_MICRONS)
+*
++ C_SHIELD_NOFILL = 2*Cpl_SHIELD_NOFILL*Epsilon_r + 2*Cc_SHIELD_NOFILL*Epsilon_r_side
++ Ctot_SHIELD_NOFILL = C_SHIELD_NOFILL*l
+*
++ Ctot_NOFILL = Ctot_NOSHIELD_NOFILL*(shieldsads == 0 && customcap == 0) + Ctot_SHIELD_NOFILL*(shieldsads == 1 && customcap == 0) + Ctot_cust*(customcap == 1)
+*
+* Capacitance update due to Pattern Fill:
+*
++ coefill =  (1 - denfill) + denfill*h_MICRONS/(h_MICRONS - h_fill)
++ Cpl_SHIELD_FILL = Cpl_SHIELD_NOFILL*coefill
+*
++ delta = 1.0e-10
++ num_side_fill = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
+*+ num_side_fill_alpha = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
+*+ num_side_fill       = (num_side_fill_alpha < 0)*0 + (num_side_fill_alpha >= 0)*num_side_fill_alpha
++ num_fill            = floor(num_side_fill + delta)
++ coefill_side        = s_MICRONS/(s_MICRONS - num_fill*wfill*denfillc)
++ Cc_SHIELD_FILL      = Cc_SHIELD_NOFILL*coefill_side
+*
++ Cpl_SHIELD = Cpl_SHIELD_NOFILL*(patternfill == 0) + Cpl_SHIELD_FILL*(patternfill == 1)
+*+ Cc_SHIELD = Cc_SHIELD_NOFILL*(patternfill == 0) + Cc_SHIELD_FILL*(patternfill == 1 && wfill > 0 && num_fill >= 1)
++ Cc_SHIELD = Cc_SHIELD_NOFILL*(patternfill == 0) + Cc_SHIELD_FILL*(patternfill == 1 && wfill > 0 && num_fill >= 1) + Cc_SHIELD_NOFILL*(patternfill == 1 && wfill > 0 && num_fill < 1) + Cc_SHIELD_NOFILL*(patternfill == 1 && wfill == 0 && num_fill >= 1) + Cc_SHIELD_NOFILL*(patternfill == 1 && wfill == 0 && num_fill < 1)
+*
++ C_SHIELD_FILL = 2*Cpl_SHIELD*Epsilon_r + 2*Cc_SHIELD*Epsilon_r_side
++ Ctot_SHIELD_FILL = C_SHIELD_FILL*l
+*
++ Ctot_SHIELD = Ctot_SHIELD_NOFILL*(patternfill == 0) + Ctot_SHIELD_FILL*(patternfill == 1)
+*
++ Ctot = Ctot_NOSHIELD*(shieldsads == 0 && customcap == 0) + Ctot_SHIELD*(shieldsads == 1 && customcap == 0) + Ctot_cust*(customcap == 1)
+* ===============================================
+* ===============================================
+* Calculation of feedback parameters for the microstrip T-lines
+*
++ fi   = Rsquare/(pi*mu0*th_MICRONS*1e-6)
++ tof  = l*(sqrt((Epsilon_r))/3e8)
++ Ltot = (tof*tof)/Ctot_NOFILL
++ Z0   = sqrt((Ltot)/Ctot_NOFILL)
+* ===============================================
+* ===============================================
+* delta_L and delta_R calculations for single wire model
+*
+* mm is equal to mu0/(2*pi)
++ mm    = 2e-07
++ thl   = th_MICRONS 
++ th_gl = th_g_MICRONS
++ wl    = w_MICRONS
++ wgl   = wg_MICRONS
++ hl    = h_MICRONS 
++ wsl   = ws
++ sl    = s_MICRONS
++ ml    = mm
+*
+* No Shield ...
++ g1          = 3-log((thl + wl)*(th_gl + wgl))
++ aa_1        = thl
++ bb_1        = th_gl
++ cc_1        = hl
++ dd_1        = wl + thl + hl
++ abc_d_1     = (aa_1 + bb_1 + cc_1)*(aa_1 + bb_1 + cc_1)*log(aa_1 + bb_1 + cc_1 + dd_1)
++ ac_d_1      = (aa_1 + cc_1)*(aa_1 + cc_1)*log(aa_1 + cc_1 + dd_1)
++ bc_d_1      = (bb_1 + cc_1)*(bb_1 + cc_1)*log(bb_1 + cc_1 + dd_1)
++ c_d_1       = cc_1*cc_1*log(cc_1 + dd_1)
++ g2          = dd_1*dd_1*(abc_d_1 - ac_d_1 - bc_d_1 + c_d_1 - 3*aa_1*bb_1)
++ dd_2        = thl + hl
++ abc_d_2     = (aa_1 + bb_1 + cc_1)*(aa_1 + bb_1 + cc_1)*log(aa_1 + bb_1 + cc_1 + dd_2)
++ ac_d_2      = (aa_1 + cc_1)*(aa_1 + cc_1)*log(aa_1 + cc_1 + dd_2)
++ bc_d_2      = (bb_1 + cc_1)*(bb_1 + cc_1)*log(bb_1 + cc_1 + dd_2)
++ c_d_2       = cc_1*cc_1*log(cc_1 + dd_2)
++ g3          = dd_2*dd_2*(abc_d_2 - ac_d_2 - bc_d_2 + c_d_2 - 3*aa_1*bb_1)	
++ L0_NOSHIELD = l*ml*(g1 + (g2 - g3)/(th_gl*wgl*thl*wl))  
+*
+* Shield ...
++ cond_g      = 1.0/(R_g*wgl*th_gl) 
++ cond_sh     = 1.0/(R_sh*wsl*thl)  
++ kappa       = cond_g/cond_sh
++ shf         = wsl + sl
++ aa_2        = thl 
++ bb_2        = th_gl
++ cc_2        = hl
++ dd_3        = wl+shf
++ abc_d_3     = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_3)
++ ac_d_3      = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_3)
++ bc_d_3      = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_3)
++ c_d_3       = cc_2*cc_2*log(cc_2 + dd_3)
++ F_ss11      = dd_3*dd_3*(abc_d_3 - ac_d_3 - bc_d_3 + c_d_3 - 3*aa_2*bb_2)
++ dd_4        = shf
++ abc_d_4     = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_4)
++ ac_d_4      = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_4)
++ bc_d_4      = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_4)
++ c_d_4       = cc_2*cc_2*log(cc_2 + dd_4)
++ F_ss12      = dd_4*dd_4*(abc_d_4 - ac_d_4 - bc_d_4 + c_d_4 - 3*aa_2*bb_2)
++ F_ss1       = (F_ss11-F_ss12)*0.5
+*
++ aa_3        = wl
++ bb_3        = wsl
++ cc_3        = sl
++ dd_5        = thl
++ abc_d_5     = (aa_3 + bb_3 + cc_3)*(aa_3 + bb_3 + cc_3)*log(aa_3 + bb_3 + cc_3 + dd_5)
++ ac_d_5      = (aa_3 + cc_3)*(aa_3 + cc_3)*log(aa_3 +cc_3 + dd_5)
++ bc_d_5      = (bb_3 + cc_3)*(bb_3 + cc_3)*log(bb_3 + cc_3 + dd_5)
++ c_d_5       = cc_3*cc_3*log(cc_3 + dd_5)
++ F_ss2       = dd_5*dd_5*(abc_d_5 - ac_d_5 - bc_d_5 + c_d_5 - 3*aa_3*bb_3)
++ s_eq        = wgl*th_gl*kappa+2*wsl*thl
++ F_ss3       = (F_ss2+F_ss1*kappa)/wl/thl/s_eq
+*
++ aa_4        = thl
++ bb_4        = th_gl
++ cc_4        = hl
++ dd_6        = wsl
++ abc_d_6     = (aa_4 + bb_4 + cc_4)*(aa_4 + bb_4 + cc_4)*log(aa_4 + bb_4 + cc_4 + dd_6)
++ ac_d_6      = (aa_4 + cc_4)*(aa_4 + cc_4)*log(aa_4 + cc_4 + dd_6)
++ bc_d_6      = (bb_4 + cc_4)*(bb_4 + cc_4)*log(bb_4 + cc_4 + dd_6)
++ c_d_6       = cc_4*cc_4*log(cc_4 + dd_6)
++ F_ss41      = dd_6*dd_6*(abc_d_6 - ac_d_6 - bc_d_6 + c_d_6 - 3*aa_4*bb_4)
++ dd_7        = wgl
++ abc_d_7     = (aa_4 + bb_4 + cc_4)*(aa_4 + bb_4 + cc_4)*log(aa_4 + bb_4 + cc_4 + dd_7)
++ ac_d_7      = (aa_4 + cc_4)*(aa_4 + cc_4)*log(aa_4 + cc_4 + dd_7)
++ bc_d_7      = (bb_4 + cc_4)*(bb_4 + cc_4)*log(bb_4 + cc_4 + dd_7)
++ c_d_7       = cc_4*cc_4*log(cc_4 + dd_7)
++ F_ss42      = dd_7*dd_7*(abc_d_7 - ac_d_7 - bc_d_7 + c_d_7 - 3*aa_4*bb_4)
++ dd_8        = wgl-wsl
++ abc_d_8     = (aa_4 + bb_4 + cc_4)*(aa_4 + bb_4 + cc_4)*log(aa_4 + bb_4 + cc_4 + dd_8)
++ ac_d_8      = (aa_4 + cc_4)*(aa_4 + cc_4)*log(aa_4 + cc_4 + dd_8)
++ bc_d_8      = (bb_4 + cc_4)*(bb_4 + cc_4)*log(bb_4 + cc_4 + dd_8)
++ c_d_8       = cc_4*cc_4*log(cc_4 + dd_8)
++ F_ss43      = dd_8*dd_8*(abc_d_8 - ac_d_8 - bc_d_8 + c_d_8 - 3*aa_4*bb_4)
++ F_ss4       = F_ss41 + F_ss42 - F_ss43
+*
++ aa_5      = wsl
++ bb_5      = wsl
++ cc_5      = wl + 2*sl
++ dd_9      = thl
++ abc_d_9   = (aa_5 + bb_5 + cc_5)*(aa_5 + bb_5 + cc_5)*log(aa_5 + bb_5 + cc_5 + dd_9)
++ ac_d_9    = (aa_5 + cc_5)*(aa_5 + cc_5)*log(aa_5 + cc_5 + dd_9)
++ bc_d_9    = (bb_5 + cc_5)*(bb_5 + cc_5)*log(bb_5 + cc_5 + dd_9)
++ c_d_9     = cc_5*cc_5*log(cc_5 + dd_9)
++ F_ss5     = dd_9*dd_9*(abc_d_9 - ac_d_9 - bc_d_9 + c_d_9 - 3*aa_5*bb_5)*0.5
++ F_ss61    = wgl*wgl*th_gl*th_gl*(log(wgl + th_gl) - 1.5)
++ F_ss62    = wsl*wsl*thl*thl*(log(wsl + thl) - 1.5)
++ F_ss6     = (F_ss61*kappa*kappa + 2*F_ss62 + 2*F_ss5 + F_ss4*kappa)/s_eq/s_eq
++ L0_SHIELD = l*ml*(1.5 - log(wl + thl) + 2*F_ss3 - F_ss6)
+*
++ LO = L0_NOSHIELD*(shieldsads == 0) + L0_SHIELD*(shieldsads == 1)
+*
++ Rtot1      = (Rpath + Rret)
+*
++ k    = ratio 
++ k2   = k*k
++ k3   = k2*k
++ k4   = k3*k
++ fi1  = (1/k2)*(Rtot1/(LO-Ltot))
+*
++ delta_R1 = 0.60*Rtot1
++ delta_R2 = delta_R1*pi
++ delta_R3 = delta_R2*pi
++ delta_L3 = delta_R3/(2.0*pi*fi1*k4)
++ delta_L2 = delta_R2/(2.0*pi*fi1*k2)
++ delta_L1 = LO - Ltot - delta_L2 - delta_L3
+*
+*
+* ===============================================
+* ===============================================
+*
+C85 (vb vshield) capacitor c=Ctot/6
+C74 (net115 vshield) capacitor c=Ctot/3
+C75 (net117 vshield) capacitor c=Ctot/3
+C84 (va vshield) capacitor c=Ctot/6
+L152 (va net109) inductor l=Ltot/3
+L153 (net193 net111) inductor l=delta_L1/3
+L154 (net111 net113) inductor l=delta_L2/3
+L155 (net113 net115) inductor l=delta_L3/3
+L156 (net119 net117) inductor l=delta_L3/3
+L157 (net121 net119) inductor l=delta_L2/3
+L158 (net199 net121) inductor l=delta_L1/3
+L159 (net115 net123) inductor l=Ltot/3
+L160 (net117 net125) inductor l=Ltot/3
+L161 (net209 net127) inductor l=delta_L1/3
+L162 (net127 net129) inductor l=delta_L2/3
+L163 (net129 vb) inductor l=delta_L3/3
+R152 (net113 net115) resistor r=delta_R3/3
+R153 (net111 net113) resistor r=delta_R2/3
+R154 (net109 net193) resistor r=Rtot/3
+R155 (net193 net111) resistor r=delta_R1/3
+R156 (net199 net121) resistor r=delta_R1/3
+R157 (net123 net199) resistor r=Rtot/3
+R158 (net121 net119) resistor r=delta_R2/3
+R159 (net119 net117) resistor r=delta_R3/3
+R160 (net129 vb) resistor r=delta_R3/3
+R161 (net127 net129) resistor r=delta_R2/3
+R162 (net125 net209) resistor r=Rtot/3
+R163 (net209 net127) resistor r=delta_R1/3
+*
+ends singlewire
+*

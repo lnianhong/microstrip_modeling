@@ -1,0 +1,16 @@
+function [ scalable_model ] = new_RLGC0123_scalable_model( )
+%UNTITLED2 Summary of this function goes here
+%   Detailed explanation goes here
+scalable_model = struct();
+scalable_model.field = {};%width or space
+scalable_model.field_data = {};
+scalable_model.RLGC_0123 ={};
+scalable_model.field_data_interp = {};
+scalable_model.RLGC_0123_interp ={};
+scalable_model.fitfunc_type = {};
+scalable_model.cfi = {};
+
+
+
+end
+

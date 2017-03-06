@@ -1,0 +1,231 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/indp.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.2 12/11/15 15:01:34
+***********************************************************************
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2012 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+*
+* Octagonal inductor model for parallel stacked octagonal spiral
+*
+***************************************************************************
+*
+* The inductor model calls indstack subcurcuit.
+*                                  +-------+
+*                                  |       |
+*                                  o       o
+*                  +------------------------------------+
+*  out  o---------o|outpr        inpr     inse     outse|o----------o  in
+*                  |                                    |
+*                  |         "indstack subcircuit"      |
+*                  |                                    |
+*                  |                 ref                |
+*                  +------------------------------------+
+*                                      o
+*                                      |
+*                                      o
+*                      ref (substrate/groundplane)
+*******************************************************************************
+*
+* NOTES:
+*
+*  1. Outer dimension (x) may vary from 100um to 300um.
+*
+*  2. Supported spiral widths (w) vary from 4um to 25um.
+*
+*  3. Turn to turn space (s) can be varied between 3um and 5um.
+*
+*  4. Number of turns (n) may vary starting from 1 in 1/4 turn increments.
+*
+*******************************************************************************
+simulator lang=spectre
+*
+subckt indp (out in ref)
+parameters
++    x      =  250u      // Largest outer dimension of octagonal spiral (m)
++    w      =  10u       // Width of spiral turn (m)
++    s      =  5u        // Turn to turn space (m)
++    n      =  4.5       // Number of turns
+*                        // 1/4 turn incr.
++    wu     =  15u       // Width of underpass (m)
++    bp     =  6      
+*                        //  6 = dt (Default)
+*                        //  8 = m1 groundplane
++    dtemp  =  0         // Temperature difference between element and
+*                        // circuit temperature (deg C).
+*
+* element multipliers
++ cmult= 1
++ lmult= 1
++ rmult= 1
++ lenmult= 1
++ px= x*lenmult
++ pw= w*lenmult
++ ps= (s*(n>1)+(n==1)*4u)*lenmult
++ ppwu= wu*lenmult
++ rxflfrac= 0.20
++ rxeff= oppcstif-2*rxflfrac*oppcstif
++ pcflfrac= 0.20
++ pceff= oppcthk-2*pcflfrac*oppcthk
++ m1flfrac= 0.09
++ m1teff= m1t-2*m1flfrac*m1t
++ m2flfrac= 0.09
++ m2teff= m2t-2*m2flfrac*m2t
++ m3flfrac= 0.09
++ m3teff= m3t-2*m3flfrac*m3t
++ m4flfrac= 0.09
++ m4teff= m4t-2*m4flfrac*m4t
++ mqflfrac= 0.09
++ mqteff= mqt-2*mqflfrac*mqt
++ lyflfrac= 0.09
++ lyteff= lyt-2*lyflfrac*lyt
++ e1flfrac= 0.00
++ e1teff= e1t-2*e1flfrac*e1t
++ maflfrac= 0.00
++ mateff= mat-2*maflfrac*mat
+*
+* bp conversion to bptype
++ bptype= bp
+*
+* Nlev conversion from wireopt
++ nlev= (wireopt==213)*6 + (wireopt==313)*7 + (wireopt==413)*8
+*
+* Last metal, Q level switch settings
++  dm= (wireopt==213) || (wireopt==313) || (wireopt==413)
+*
+* Calculations of primary and secondary.
+*
++ pprt= mat
++ pdelpr= delma
++ pprrs= mars
++ temcpr= (mars*tmars)
++ temcprnum= mars
++ psect= e1t
++ pdelsec= dele1
++ psecrs= e1rs
++ temcse= e1rs*te1rs
++ temcsenum= e1rs
++ psecprt= e1mat
+*
+* Calculations of stack height info.
+*
++ h213= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
++ h313= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
++ h413= rxeff+pceff+capct+m1teff+m1m2t+m2teff+m2m3t+m3teff+m3m4t+m4teff+m4mqt+mqteff+mqlyt+lyteff+lye1t+psect+psecprt+pprt
+*
++ phpr= (wireopt==213)*h213+(wireopt==313)*h313+(wireopt==413)*h413 - pprt
++ phsec= phpr-psect-psecprt
+*
+* Calculations of M1 shield stack height.
+*
++ phm1sx= oppcstif+oppcthk+capct+m1t
++ phpreff= phpr-(bp==8)*phm1sx
++ phseceff= phsec-(bp==8)*phm1sx
+*
+* Calculations of Temc. Coefficient
++ ptprrs= temcpr/temcprnum
++ ptsers= temcse/temcsenum
+*
+* PR Parallel Spiral Coefficients
++ ppcprs= e0*4.038/phseceff
++ ppcus= e0*4.038/phseceff
++ ppcpru= e0*4.100/psecprt
++ ppcpruf= e0*4.100*(2*0.388/(pi-2)*log(pi/2)+2*0.388/pi*log(1+pprt/psecprt))
++ ppcprsf= e0*4.038*(2*0.734/(pi-2)*log(pi/2)+2*0.199/pi*log(1+(pprt+psect)/phseceff))
++ ppcusf= e0*4.038*(2*0.741/(pi-2)*log(pi/2)+2*0.373/pi*log(1+psect/phseceff))
++ palphapr= atan(max(1u,(ps-pdelpr)/0.322/phseceff))
++ ppcmprsf= e0*4.038*(0.240*(1-cos(2*palphapr))/(2*palphapr-sin(2*palphapr))*log(2*palphapr/sin(2*palphapr)))
++ pbeta= pi/2-2*palphapr
++ ppcprpr= e0*3.661*(1/pi*log(1+pw/(ps-pdelpr))+0.000/(pi-2)*log(pi/2)+1.230*(pprt+psect)/(ps-pdelpr)+1.496/2*(1-cos(pbeta))/(pbeta-sin(pbeta))*log(pbeta/sin(pbeta)))
++ ppcmpruf= 1e-12*(0.000*pow((phseceff*1e6),2)+-0.000*(phseceff*1e6)+13.406)
+*
+xstack out 2 in 2 ref indstack
++ xp= px
++ xs= px
++ wp= pw
++ ws= pw
++ sp= ps
++ ss= ps
++ np= n
++ ns= n
++ pwu= ppwu
++ pstack= 1
++ pgrnd= bptype
++ gprs= m1rs
++ tgprs= tm1rs
++ ctrs= m1rs
++ tctrs= tm1rs
++ rsx= rsub
++ trsx= trsub
++ pdtemp= dtemp
++ delpr= (pdelpr*pprt+pdelsec*psect)/(pprt+psect)
++ prrs= pprrs
++ prt= (pprt+psect)
++ tprrs= (pprrs*ptprrs+psecrs*ptsers)/(pprrs+psecrs)
++ delse= (pdelpr*pprt+pdelsec*psect)/(pprt+psect)
++ sers= psecrs
++ sect= (pprt+psect)
++ tsers= (pprrs*ptprrs+psecrs*ptsers)/(pprrs+psecrs)
++ delup= pdelsec
++ uprs= psecrs
++ tuprs= ptsers
++ upt= psect
++ cprs= ppcprs
++ cprsf= ppcprsf
++ cmprsf= ppcmprsf
++ cprpr= ppcprpr
++ cpru= ppcpru
++ cpruf= ppcpruf
++ cmpruf= ppcmpruf
++ cses= ppcprs
++ csesf= ppcprsf
++ cmsesf= ppcmprsf
++ csese= ppcprpr
++ cprse= 1f
++ cprsef= 1f
++ cmprsef= 1f
++ cus= ppcus
++ cusf= ppcusf
++ sxthk= pmsxt - ((wireopt==213)*h213 + (wireopt==313)*h313 + (wireopt==413)*h413)
+*
+* optimization coefficients
++ prscrfmin = 0.0008
++ prscrfmax = 0.008
++ prscrfa = 0.004
++ prscrfb = -0.0004
++ prfb = 3e-06
++ ppowa= 0
++ ppowb= 0
++ pamax= 8600
++ paa= 400
++ pab= 100
++ condsib= 1.0
++ prgptb= 100
++ rsxcorrb= 1.0
++ csxcormax= 2.1
++ csxcorra= 0.0003
++ csxcorrb= 0.326
++ pcmprsb= 1
++ pcmsesb= 1
++ pcofprsb= 1
++ pcofsesb= 1
++ pcoprseb= 1
++ pcmprseb= 1
++ posplps= 0.38 - 0.12*(bp==8)
++ sosplps= 0.38 - 0.12*(bp==8)
++ posplx= 0.35
++ plscrfmax= 0.48
++ plscrfa= 0.4
++ plscrfb= 0.1
++ slscrfa= 0.4
++ slscrfb= 0.1
++ pcoo= 1.2
+*
+ends indp

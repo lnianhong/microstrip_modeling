@@ -1,0 +1,170 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>cpw_total_single</title><meta name="generator" content="MATLAB 9.1"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-11-07"><meta name="DC.source" content="cpw_total_single.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">extract the RLGC and RLGC 0123</a></li><li><a href="#3">plot the result</a></li></ul></div><pre class="codeinput">clc;clear;close <span class="string">all</span>
+dbstop <span class="string">if</span> <span class="string">error</span>;
+len = 150;
+width = 4;
+space = 4;
+file_name = sprintf(<span class="string">'../S_parameters_sim/width/W%d/L%dW%dS%d.csv'</span>,width,len,width,space);
+
+<span class="comment">%csvwrite writes a maximum of five significant digits. If you need greater precision, use dlmwrite with a precision argument.</span>
+freq_unit = <span class="string">'GHz'</span>;
+zero_freq = 0;<span class="comment">% dont't deal 0GHz</span>
+freq_max = 100e9;
+freq_min = 0.5e9;
+num_pi = ceil(len/12.5-1e-6);
+len = len *1e-6;
+<span class="comment">% the unit is different with doctor Fu&#65292;doctor Fu use cm as the unit of the length</span>
+[ s_params,freq] = hfss_csv_2_sparams(file_name,zero_freq,freq_unit);
+<span class="keyword">if</span> max(freq)&lt; freq_max || min(freq)&gt;freq_min
+    error(<span class="string">'max(freq)&lt; freq_max || min(freq)&gt;freq_min'</span>);
+<span class="keyword">end</span>
+s_params = s_params(:,:,freq&lt;=freq_max &amp; freq&gt;=freq_min );
+freq = freq(freq&lt;=freq_max &amp; freq&gt;=freq_min );
+</pre><h2 id="2">extract the RLGC and RLGC 0123</h2><pre class="codeinput">[RLGC_sim,gamma,Z] = S_2_RLGC(s_params,freq,len);
+[ RLGC_fit,RLGC_0123_fit,f_fit ] = RLGC_2_0123( RLGC_sim,freq);
+
+[ S_model_cal] = cpw_model_pi_net(freq,RLGC_0123_fit,len,num_pi);
+[RLGC_model,gamma_model,Z_model] = S_2_RLGC(S_model_cal,freq,len); <span class="comment">% the unit length is meter!</span>
+</pre><h2 id="3">plot the result</h2><pre class="codeinput">plot_RLGC_double(freq,RLGC_sim,RLGC_model,{<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'RLGC: sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>});
+<span class="comment">% disp_RLGC_err( RLGC_sim,RLGC_model,f_fit_RL,f_fit_GC,'Summary of RLGC model');</span>
+plot_Sparam_double(freq,s_params,S_model_cal,{<span class="string">'hfss-sim'</span>,<span class="string">'model'</span>},<span class="string">'S parameters dB (em sim VS model)'</span>);
+plot_Sparam_double_Real_Imag(freq,s_params,S_model_cal,{<span class="string">'hfss-sim'</span>,<span class="string">'model'</span>},<span class="string">'S parameters(em sim VS model)'</span>,<span class="string">'off'</span> );
+disp_Sparam_error( s_params,S_model_cal,<span class="string">'Error of S parameters'</span>);
+[Err_alpha,Err_beta ]=plot_gamma_double(freq,gamma,gamma_model,{<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'alpha and beta: sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>} );
+disp_alpha_beta_err( Err_alpha,Err_beta,<span class="string">'Error of alpha &amp; beta'</span> );
+[Err_Zr,Err_Zi ]=plot_gamma_double(freq,Z,Z_model,{<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'real(Z) and imag(Z): sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>} );
+<span class="comment">% disp_alpha_beta_err( Err_alpha,Err_beta,'Error of alpha &amp; beta' );</span>
+</pre><pre class="codeoutput">    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :448.13% 
+ Average error ratio of Real(S11):5.97% 
+ Maxium error ratio of Imag(S11) :26.95% 
+ Average error ratio of Imag(S11):1.76% 
+ Maxium error ratio of Real(S12) :0.19% 
+ Average error ratio of Real(S12):0.05% 
+ Maxium error ratio of Imag(S12) :1.87% 
+ Average error ratio of Imag(S12):0.22% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :4.44% 
+ Average error ratio of alpha:1.23% 
+ Maxium error ratio of beta :0.92% 
+ Average error ratio of beta:0.22% 
+=================================================================================
+
+</pre><img vspace="5" hspace="5" src="cpw_total_single_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_single_02.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_single_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_single_04.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_single_05.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2016b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clc;clear;close all
+dbstop if error;
+len = 150;
+width = 4;
+space = 4;
+file_name = sprintf('../S_parameters_sim/width/W%d/L%dW%dS%d.csv',width,len,width,space);
+
+%csvwrite writes a maximum of five significant digits. If you need greater precision, use dlmwrite with a precision argument.
+freq_unit = 'GHz';
+zero_freq = 0;% dont't deal 0GHz
+freq_max = 100e9;
+freq_min = 0.5e9;
+num_pi = ceil(len/12.5-1e-6);
+len = len *1e-6;
+% the unit is different with doctor Fu，doctor Fu use cm as the unit of the length
+[ s_params,freq] = hfss_csv_2_sparams(file_name,zero_freq,freq_unit);
+if max(freq)< freq_max || min(freq)>freq_min
+    error('max(freq)< freq_max || min(freq)>freq_min');
+end
+s_params = s_params(:,:,freq<=freq_max & freq>=freq_min );
+freq = freq(freq<=freq_max & freq>=freq_min );
+%% extract the RLGC and RLGC 0123
+[RLGC_sim,gamma,Z] = S_2_RLGC(s_params,freq,len);
+[ RLGC_fit,RLGC_0123_fit,f_fit ] = RLGC_2_0123( RLGC_sim,freq);
+
+[ S_model_cal] = cpw_model_pi_net(freq,RLGC_0123_fit,len,num_pi);
+[RLGC_model,gamma_model,Z_model] = S_2_RLGC(S_model_cal,freq,len); % the unit length is meter!
+
+%% plot the result
+plot_RLGC_double(freq,RLGC_sim,RLGC_model,{'sim','model'},'RLGC: sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'});
+% disp_RLGC_err( RLGC_sim,RLGC_model,f_fit_RL,f_fit_GC,'Summary of RLGC model');
+plot_Sparam_double(freq,s_params,S_model_cal,{'hfss-sim','model'},'S parameters dB (em sim VS model)');
+plot_Sparam_double_Real_Imag(freq,s_params,S_model_cal,{'hfss-sim','model'},'S parameters(em sim VS model)','off' );
+disp_Sparam_error( s_params,S_model_cal,'Error of S parameters');
+[Err_alpha,Err_beta ]=plot_gamma_double(freq,gamma,gamma_model,{'sim','model'},'alpha and beta: sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'} );
+disp_alpha_beta_err( Err_alpha,Err_beta,'Error of alpha & beta' );
+[Err_Zr,Err_Zi ]=plot_gamma_double(freq,Z,Z_model,{'sim','model'},'real(Z) and imag(Z): sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'} );
+% disp_alpha_beta_err( Err_alpha,Err_beta,'Error of alpha & beta' );
+
+##### SOURCE END #####
+--></body></html>

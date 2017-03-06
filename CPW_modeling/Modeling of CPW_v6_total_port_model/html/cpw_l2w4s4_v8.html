@@ -1,0 +1,279 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>cpw_l2w4s4_v8</title><meta name="generator" content="MATLAB 8.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-10-11"><meta name="DC.source" content="cpw_l2w4s4_v8.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#2">extract the RLGC</a></li><li><a href="#4">model RL</a></li><li><a href="#5">model GC</a></li><li><a href="#6">RLGC display</a></li><li><a href="#7">use equations to calculate the s parameters of the equivalent model</a></li></ul></div><pre class="codeinput">clc;clear;close <span class="string">all</span>
+addpath(<span class="string">'./function'</span>)
+dbstop <span class="string">if</span> <span class="string">error</span>;
+l2w4s4_file = <span class="string">'./S_parameters_sim/L2W4S4_150G.csv'</span>;
+<span class="comment">% l2w4s4_file = './S_parameters_sim/L2W4S5.csv';</span>
+<span class="comment">% l2w4s4_file = './S_parameters_sim/L600_S.csv';</span>
+<span class="comment">%csvwrite writes a maximum of five significant digits. If you need greater precision, use dlmwrite with a precision argument.</span>
+freq_unit = <span class="string">'GHz'</span>;
+zero_freq = 0;<span class="comment">% dont't deal 0GHz</span>
+freq_max = 100e9;
+freq_min = 0.5e9;
+len =str2double(cell2mat(regexp(l2w4s4_file,<span class="string">'\d{2,3}'</span>, <span class="string">'match'</span>)));
+<span class="comment">% len = 100;</span>
+num_pi = ceil(len/50);
+len = len *1e-6;
+<span class="comment">% the unit is different with doctor Fu&#65292;doctor Fu use cm as the unit of the length</span>
+[ s_params,freq] = hfss_csv_2_sparams(l2w4s4_file,zero_freq,freq_unit);
+<span class="keyword">if</span> max(freq)&lt; freq_max || min(freq)&gt;freq_min
+    error(<span class="string">'max(freq)&lt; freq_max || min(freq)&gt;freq_min'</span>);
+<span class="keyword">end</span>
+s_params = s_params(:,:,freq&lt;=freq_max &amp; freq&gt;=freq_min );
+freq = freq(freq&lt;=freq_max &amp; freq&gt;=freq_min );
+</pre><h2>extract the RLGC<a name="2"></a></h2><pre class="codeinput">[R,L,G,C,gamma,Z0] = S_2_RLGC(s_params,freq,len); <span class="comment">% the unit length is meter!</span>
+</pre><pre class="codeinput">f_2_zone = (4:0.5:25)*1e9;
+f_1 = 1e9*ones(1,length(f_2_zone));<span class="comment">%GHz</span>
+f_3 = freq_max*ones(1,length(f_2_zone));
+f_123_mat = [f_1;f_2_zone;f_3];
+</pre><h2>model RL<a name="4"></a></h2><pre class="codeinput">lambda_RL = [0.5;0.5];
+weight_RL = ones(length(freq),2);
+weight_RL(100:200,:) = weight_RL(100:200,:)*1;
+fun = @(A,B) A./B;
+weight_RL = bsxfun(fun,weight_RL,sum(weight_RL,1));
+[R_fit,L_fit,R_0123_fit,L_0123_fit,f_fit_RL,Err_RL,Err_min_RL] =<span class="keyword">...</span><span class="comment">,</span>
+              fit_RLGC(f_123_mat,freq,R,L,G,C,lambda_RL,weight_RL,<span class="string">'RL'</span>,3);
+</pre><h2>model GC<a name="5"></a></h2><pre class="codeinput">lambda_GC = [0.5;0.5];
+weight_GC = ones(length(freq),2);
+weight_GC(100:200,:) = weight_GC(100:200,:)*1;
+weight_GC = bsxfun(fun,weight_GC,sum(weight_GC,1));
+[G_fit,C_fit,G_0123_fit,C_0123_fit,f_fit_GC,Err_GC,Err_min_GC] = <span class="keyword">...</span><span class="comment">,</span>
+          fit_RLGC(f_123_mat,freq,R,L,G,C,lambda_GC,weight_GC,<span class="string">'GC'</span>,3);
+</pre><h2>RLGC display<a name="6"></a></h2><pre class="codeinput">RLGC = [R,L,G,C];
+RLGC_fit = [R_fit,L_fit,G_fit,C_fit];
+<span class="comment">% plot_RLGC_double(freq,RLGC,RLGC_fit,{'sim','fit'},'RLGC: sim vs fit',{'-r','--b'});</span>
+<span class="comment">% disp_RLGC_err( RLGC,RLGC_fit,f_fit_RL,f_fit_GC,'Summary of RLGC fit');</span>
+</pre><h2>use equations to calculate the s parameters of the equivalent model<a name="7"></a></h2><pre class="codeinput">[ S_model_cal] = cpw_model_pi_net(freq,R_0123_fit,L_0123_fit,G_0123_fit,C_0123_fit,f_fit_RL,f_fit_GC,len,num_pi);
+[R_model,L_model,G_model,C_model,gamma_model] = S_2_RLGC(S_model_cal,freq,len); <span class="comment">% the unit length is meter!</span>
+RLGC_model = [R_model,L_model,G_model,C_model];
+plot_RLGC_double(freq,RLGC,RLGC_model,{<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'RLGC: sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>});
+disp_RLGC_err( RLGC,RLGC_model,f_fit_RL,f_fit_GC,<span class="string">'Summary of RLGC model'</span>);
+plot_Sparam_double(freq,s_params,S_model_cal,{<span class="string">'hfss-sim'</span>,<span class="string">'model'</span>},<span class="string">'S parameters dB (em sim VS model)'</span>);
+plot_Sparam_double_Real_Imag(freq,s_params,S_model_cal,{<span class="string">'hfss-sim'</span>,<span class="string">'model'</span>},<span class="string">'S parameters(em sim VS model)'</span>,<span class="string">'off'</span> );
+disp_Sparam_error( s_params,S_model_cal,<span class="string">'Error of S parameters'</span>);
+[Err_alpha,Err_beta ]=plot_gamma_double(freq,gamma,gamma_model,{<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'alpha and beta: sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>} );
+disp_alpha_beta_err( Err_alpha,Err_beta,<span class="string">'Error of alpha &amp; beta'</span> );
+
+
+<span class="comment">% Y_param = s2y(S_model_cal);</span>
+<span class="comment">% Y11 = reshape(Y_param(1,1,:),length(freq),[]);</span>
+<span class="comment">% R_equal =real(1./Y11);</span>
+<span class="comment">% L_equal =imag(1./Y11)./(2*pi*freq);</span>
+<span class="comment">% figure</span>
+<span class="comment">% [ax,p1,p2]=plotyy(freq,R,freq,R_equal);</span>
+<span class="comment">% xlabel(ax(1),'freq') % label x-axis</span>
+<span class="comment">% ylabel(ax(1),'R') % label left y-axis</span>
+<span class="comment">% ylabel(ax(2),'R_equal') % label right y-axis</span>
+<span class="comment">% grid(ax(1),'minor')</span>
+<span class="comment">% hold off</span>
+<span class="comment">%</span>
+<span class="comment">% figure</span>
+<span class="comment">% [ax,p1,p2]=plotyy(freq,L,freq,L_equal);</span>
+<span class="comment">% xlabel(ax(1),'freq') % label x-axis</span>
+<span class="comment">% ylabel(ax(1),'L') % label left y-axis</span>
+<span class="comment">% ylabel(ax(2),'L_equal') % label right y-axis</span>
+<span class="comment">% grid(ax(1),'minor')</span>
+<span class="comment">% hold off</span>
+</pre><pre class="codeoutput">    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.58% 
+ Average error ratio of R:2.07% 
+ Maxium error ratio of L :3.55% 
+ Average error ratio of L:0.68% 
+ Maxium error ratio of G :227.29% 
+ Average error ratio of G:7.51% 
+ Maxium error ratio of C :1.04% 
+ Average error ratio of C:0.44% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :742.23% 
+ Average error ratio of Real(S11):9.56% 
+ Maxium error ratio of Imag(S11) :54.86% 
+ Average error ratio of Imag(S11):2.90% 
+ Maxium error ratio of Real(S12) :0.38% 
+ Average error ratio of Real(S12):0.13% 
+ Maxium error ratio of Imag(S12) :1.36% 
+ Average error ratio of Imag(S12):0.34% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :4.54% 
+ Average error ratio of alpha:1.59% 
+ Maxium error ratio of beta :1.00% 
+ Average error ratio of beta:0.40% 
+=================================================================================
+
+</pre><img vspace="5" hspace="5" src="cpw_l2w4s4_v8_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_l2w4s4_v8_02.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_l2w4s4_v8_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_l2w4s4_v8_04.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clc;clear;close all
+addpath('./function')
+dbstop if error;
+l2w4s4_file = './S_parameters_sim/L2W4S4_150G.csv';
+% l2w4s4_file = './S_parameters_sim/L2W4S5.csv';
+% l2w4s4_file = './S_parameters_sim/L600_S.csv';
+%csvwrite writes a maximum of five significant digits. If you need greater precision, use dlmwrite with a precision argument.
+freq_unit = 'GHz';
+zero_freq = 0;% dont't deal 0GHz
+freq_max = 100e9;
+freq_min = 0.5e9;
+len =str2double(cell2mat(regexp(l2w4s4_file,'\d{2,3}', 'match')));
+% len = 100;
+num_pi = ceil(len/50);
+len = len *1e-6;
+% the unit is different with doctor Fu，doctor Fu use cm as the unit of the length
+[ s_params,freq] = hfss_csv_2_sparams(l2w4s4_file,zero_freq,freq_unit);
+if max(freq)< freq_max || min(freq)>freq_min
+    error('max(freq)< freq_max || min(freq)>freq_min');
+end
+s_params = s_params(:,:,freq<=freq_max & freq>=freq_min );
+freq = freq(freq<=freq_max & freq>=freq_min );
+%% extract the RLGC
+
+[R,L,G,C,gamma,Z0] = S_2_RLGC(s_params,freq,len); % the unit length is meter!
+
+%% 
+f_2_zone = (4:0.5:25)*1e9;
+f_1 = 1e9*ones(1,length(f_2_zone));%GHz
+f_3 = freq_max*ones(1,length(f_2_zone));
+f_123_mat = [f_1;f_2_zone;f_3];
+%% model RL
+lambda_RL = [0.5;0.5];
+weight_RL = ones(length(freq),2);
+weight_RL(100:200,:) = weight_RL(100:200,:)*1;
+fun = @(A,B) A./B;
+weight_RL = bsxfun(fun,weight_RL,sum(weight_RL,1));
+[R_fit,L_fit,R_0123_fit,L_0123_fit,f_fit_RL,Err_RL,Err_min_RL] =...,
+              fit_RLGC(f_123_mat,freq,R,L,G,C,lambda_RL,weight_RL,'RL',3);
+%% model GC
+lambda_GC = [0.5;0.5];
+weight_GC = ones(length(freq),2);
+weight_GC(100:200,:) = weight_GC(100:200,:)*1;
+weight_GC = bsxfun(fun,weight_GC,sum(weight_GC,1));
+[G_fit,C_fit,G_0123_fit,C_0123_fit,f_fit_GC,Err_GC,Err_min_GC] = ...,
+          fit_RLGC(f_123_mat,freq,R,L,G,C,lambda_GC,weight_GC,'GC',3);
+
+%% RLGC display      
+RLGC = [R,L,G,C];
+RLGC_fit = [R_fit,L_fit,G_fit,C_fit];
+% plot_RLGC_double(freq,RLGC,RLGC_fit,{'sim','fit'},'RLGC: sim vs fit',{'-r','REPLACE_WITH_DASH_DASHb'});
+% disp_RLGC_err( RLGC,RLGC_fit,f_fit_RL,f_fit_GC,'Summary of RLGC fit');
+
+%% use equations to calculate the s parameters of the equivalent model
+
+[ S_model_cal] = cpw_model_pi_net(freq,R_0123_fit,L_0123_fit,G_0123_fit,C_0123_fit,f_fit_RL,f_fit_GC,len,num_pi);
+[R_model,L_model,G_model,C_model,gamma_model] = S_2_RLGC(S_model_cal,freq,len); % the unit length is meter!
+RLGC_model = [R_model,L_model,G_model,C_model];
+plot_RLGC_double(freq,RLGC,RLGC_model,{'sim','model'},'RLGC: sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'});
+disp_RLGC_err( RLGC,RLGC_model,f_fit_RL,f_fit_GC,'Summary of RLGC model');
+plot_Sparam_double(freq,s_params,S_model_cal,{'hfss-sim','model'},'S parameters dB (em sim VS model)');
+plot_Sparam_double_Real_Imag(freq,s_params,S_model_cal,{'hfss-sim','model'},'S parameters(em sim VS model)','off' );
+disp_Sparam_error( s_params,S_model_cal,'Error of S parameters');
+[Err_alpha,Err_beta ]=plot_gamma_double(freq,gamma,gamma_model,{'sim','model'},'alpha and beta: sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'} );
+disp_alpha_beta_err( Err_alpha,Err_beta,'Error of alpha & beta' );
+
+
+% Y_param = s2y(S_model_cal);
+% Y11 = reshape(Y_param(1,1,:),length(freq),[]);
+% R_equal =real(1./Y11);
+% L_equal =imag(1./Y11)./(2*pi*freq);
+% figure
+% [ax,p1,p2]=plotyy(freq,R,freq,R_equal);
+% xlabel(ax(1),'freq') % label x-axis
+% ylabel(ax(1),'R') % label left y-axis
+% ylabel(ax(2),'R_equal') % label right y-axis
+% grid(ax(1),'minor')
+% hold off
+% 
+% figure
+% [ax,p1,p2]=plotyy(freq,L,freq,L_equal);
+% xlabel(ax(1),'freq') % label x-axis
+% ylabel(ax(1),'L') % label left y-axis
+% ylabel(ax(2),'L_equal') % label right y-axis
+% grid(ax(1),'minor')
+% hold off
+
+
+
+
+
+
+##### SOURCE END #####
+--></body></html>

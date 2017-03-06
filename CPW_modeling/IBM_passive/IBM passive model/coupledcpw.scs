@@ -1,0 +1,1732 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/coupledcpw.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.5 12/10/29 09:38:14
+*
+*>  IBM bicmos8hp "coupledcpw" line model
+* 
+***************************************************************************
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2012 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+simulator lang=spectre
+subckt coupledcpw (va1 va2 vb1 vb2 vshield)
+parameters 
+*
+* The basic coupled coplanar T-Line structure is
+* two metal signal wires of the width W between two coplanar ground wires 
+* of the width Ws = W (return path wires), above the silicon substrate. 
+* All metal levels are supported for the coplanar lines usage.
+*
+* Coupled coplanar T-line cross section
+* =====================================
+*
+*  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  Crossover (optional)
+*
+*       Ws          W            W            Ws
+*    <------>    <------>     <------>    <------>
+*     ------      ------       ______      ------  
+*    |Return|  s |      |  d  |      |  s |Return|
+*    | path |<-->|Signal|<--->|Signal|<-->| path |     Signal Layer
+*    |      |    |      |     |      |    |      |
+*     ------      ------       ------      ------
+*
+*  XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  Crossunder (optional)
+*
+*  --------------------------------------------------------
+*  ///////////////// SILICON  SUBSTRATE ///////////////////
+*  ////////////////////////////////////////////////////////
+*
+* This model describes the frequency dependent impedance,
+* attenuation and phase shift in a high bandwidth.
+* The model considers the  skin and proximity effects in the signal wire
+* plus coplanar return path wires.
+* The model considers the conductive silicon substrate effect on both
+* the signal attenuation and capacitance (frequency dependent capacitance).
+* The model is implemented in multi-segment RLC filter networks
+* and is passive by construction.
+* The model works both in time and frequency domains in all
+* simulation analysis types (dc, ac, sp, pss ...)
+*
+* The model considers the
+* standard copper line cheesing process, and
+* assumes super cheesing for Wg > 50[um].
+*
+* The T-line shielding should be connected 
+* in the given design in a manner which allows the return path
+* current to flow through them.
+* T-line Pcells can be connected to form bends/junctions,
+* provided that the bends/junctions are shielded in the same manner
+* as these T-lines are. In most practical cases, such shielded bends/junctions
+* have much smaller effect than the T-lines themselves.
+*
+* The model considers multi-layer dielectric structure
+* and allows to consider the pattern metal fill.
+* ===============================================
+* coupledcpw input parameters 
+*
+* bwmax           --> Maximum signal bandwidth used, in GHz.
+* l               --> Length of the coupledcpw signal lines, in meters.
+* w               --> Width of the coupledcpw signal lines, in meters.
+* s               --> Seperation between coupledcpw signal wire and adjacent return path wire, in meters.
+* d               --> distance between the two coupled signal wires 
+* layer_sig       --> Metal layer of the coupledcpw signal wire:  See table immediately below.  
+* crosstype       --> crossing type:  0="full plane" and 1="custom"
+* plane           --> crossing condition:  0="none", 1="above", 2="below", 3="both"
+* layer_bot       --> Metal layer of crossunder:  See table immmediately below.
+* layer_top       --> Metal layer of crossover:  See table immmediately below.
+* crosscapfactor  --> Crossing Capacitance Factor, which estimates the impact of crossing lines:  0<=crosscapfactor<=1 
+* patternfill     --> 0 disables pattern fill modeling, 1 enables it.
+* siliconlosses   --> Enables modeling of silicon loss for custom capacitance case.
+* C_cust          --> User provided capacitance per unit length.
+* Cc_cust         --> User provided coupling capacitance per unit length.
+*
+* NOTES:
+*
+*             wireopt
+*  5AM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 AM=7
+*              211   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  6AM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 AM=7
+*              311   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  7AM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 AM=7
+*              411   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  6DM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 E1=8 MA=9
+*              213   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  7DM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 MA=9
+*              313   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  8DM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 MA=9
+*              413   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*
+* coupledcpw default input parameters
++ bwmax          = 40
++ l              = 100.0e-6
++ w              = 4.0e-6
++ s              = 6.0e-6
++ d              = 6.0e-6
++ patternfill    = 1
++ layer_sig      = 2
++ crosstype      = 0
++ plane          = 0
++ layer_bot      = 1
++ layer_top      = 5
++ crosscapfactor = 1
++ siliconlosses  = 0
++ C_cust         = 1.0e-10
++ Cc_cust        = 1.0e-10
+* ===============================================
+* coupledcpw model constants
++ ratio     = 3.14159
++ E0        = 8.8542e-12
++ Epsilon_s = 11.9
++ denfill   = 0.45
++ Tref      = 25.0
+* ===============================================
+* Conversion of Meters to Microns for input parameters
++ l_MICRONS = l*1.0e+6
++ w_MICRONS = w*1.0e+6
++ s_MICRONS = s*1.0e+6
++ d_MICRONS = d*1.0e+6
+* ===============================================
+* Begin COMMON
+*
+* Begin metal layer stack
+*
++ si_top = 0.0
+*
+* Metal Option: wireopt = 211 (5AM)
++ am5    = wireopt==211
++ m1bot1 = 0.95e-06
++ m1top1 = m1bot1 + m1t
++ m2bot1 = m1top1 + m1m2t
++ m2top1 = m2bot1 + m2t
++ mqbot1 = m2top1 + m2mqt
++ mqtop1 = mqbot1 + mqt
++ lybot1 = mqtop1 + mqlyt
++ lytop1 = lybot1 + lyt
++ ambot1 = lytop1 + lyamt
++ amtop1 = ambot1 + amt
+*
+* Metal Option: wireopt = 311 (6AM)
++ am6    = wireopt==311
++ m1bot2 = 0.95e-06
++ m1top2 = m1bot2 + m1t
++ m2bot2 = m1top2 + m1m2t
++ m2top2 = m2bot2 + m2t
++ m3bot2 = m2top2 + m2m3t
++ m3top2 = m3bot2 + m3t
++ mqbot2 = m3top2 + m3mqt
++ mqtop2 = mqbot2 + mqt
++ lybot2 = mqtop2 + mqlyt
++ lytop2 = lybot2 + lyt
++ ambot2 = lytop2 + lyamt
++ amtop2 = ambot2 + amt
+*
+* Metal Option: wireopt = 411 (7AM)
++ am7    = wireopt==411
++ m1bot3 = 0.95e-06
++ m1top3 = m1bot3 + m1t
++ m2bot3 = m1top3 + m1m2t
++ m2top3 = m2bot3 + m2t
++ m3bot3 = m2top3 + m2m3t
++ m3top3 = m3bot3 + m3t
++ m4bot3 = m3top3 + m3m4t
++ m4top3 = m4bot3 + m4t
++ mqbot3 = m4top3 + m4mqt
++ mqtop3 = mqbot3 + mqt
++ lybot3 = mqtop3 + mqlyt
++ lytop3 = lybot3 + lyt
++ ambot3 = lytop3 + lyamt
++ amtop3 = ambot3 + amt
+*
+* Metal Option: wireopt = 213 (6DM)
++ dm6    = wireopt==213
++ m1bot4 = 0.95e-06
++ m1top4 = m1bot4 + m1t
++ m2bot4 = m1top4 + m1m2t
++ m2top4 = m2bot4 + m2t
++ mqbot4 = m2top4 + m2mqt
++ mqtop4 = mqbot4 + mqt
++ lybot4 = mqtop4 + mqlyt
++ lytop4 = lybot4 + lyt
++ e1bot4 = lytop4 + lye1t
++ e1top4 = e1bot4 + e1t
++ mabot4 = e1top4 + e1mat
++ matop4 = mabot4 + mat
+*
+* Metal Option: wireopt = 313 (7DM)
++ dm7    = wireopt==313
++ m1bot5 = 0.95e-06
++ m1top5 = m1bot5 + m1t
++ m2bot5 = m1top5 + m1m2t
++ m2top5 = m2bot5 + m2t
++ m3bot5 = m2top5 + m2m3t
++ m3top5 = m3bot5 + m3t
++ mqbot5 = m3top5 + m3mqt
++ mqtop5 = mqbot5 + mqt
++ lybot5 = mqtop5 + mqlyt
++ lytop5 = lybot5 + lyt
++ e1bot5 = lytop5 + lye1t
++ e1top5 = e1bot5 + e1t
++ mabot5 = e1top5 + e1mat
++ matop5 = mabot5 + mat
+*
+* Metal Option: wireopt = 413 (8DM)
++ dm8    = wireopt==413
++ m1bot6 = 0.95e-06
++ m1top6 = m1bot6 + m1t
++ m2bot6 = m1top6 + m1m2t
++ m2top6 = m2bot6 + m2t
++ m3bot6 = m2top6 + m2m3t
++ m3top6 = m3bot6 + m3t
++ m4bot6 = m3top6 + m3m4t
++ m4top6 = m4bot6 + m4t
++ mqbot6 = m4top6 + m4mqt
++ mqtop6 = mqbot6 + mqt
++ lybot6 = mqtop6 + mqlyt
++ lytop6 = lybot6 + lyt
++ e1bot6 = lytop6 + lye1t
++ e1top6 = e1bot6 + e1t
++ mabot6 = e1top6 + e1mat
++ matop6 = mabot6 + mat
+*
++ m1bot = (m1bot1*am5 + m1bot2*am6 + m1bot3*am7 + m1bot4*dm6 + m1bot5*dm7 + m1bot6*dm8)*1.0e06
++ m1top = (m1top1*am5 + m1top2*am6 + m1top3*am7 + m1top4*dm6 + m1top5*dm7 + m1top6*dm8)*1.0e06
++ m2bot = (m2bot1*am5 + m2bot2*am6 + m2bot3*am7 + m2bot4*dm6 + m2bot5*dm7 + m2bot6*dm8)*1.0e06
++ m2top = (m2top1*am5 + m2top2*am6 + m2top3*am7 + m2top4*dm6 + m2top5*dm7 + m2top6*dm8)*1.0e06
++ m3bot = (   0.0*am5 + m3bot2*am6 + m3bot3*am7 +    0.0*dm6 + m3bot5*dm7 + m3bot6*dm8)*1.0e06
++ m3top = (   0.0*am5 + m3top2*am6 + m3top3*am7 +    0.0*dm6 + m3top5*dm7 + m3top6*dm8)*1.0e06
++ m4bot = (   0.0*am5 +    0.0*am6 + m4bot3*am7 +    0.0*dm6 +    0.0*dm7 + m4bot6*dm8)*1.0e06
++ m4top = (   0.0*am5 +    0.0*am6 + m4top3*am7 +    0.0*dm6 +    0.0*dm7 + m4top6*dm8)*1.0e06
++ mqbot = (mqbot1*am5 + mqbot2*am6 + mqbot3*am7 + mqbot4*dm6 + mqbot5*dm7 + mqbot6*dm8)*1.0e06
++ mqtop = (mqtop1*am5 + mqtop2*am6 + mqtop3*am7 + mqtop4*dm6 + mqtop5*dm7 + mqtop6*dm8)*1.0e06
++ lybot = (lybot1*am5 + lybot2*am6 + lybot3*am7 + lybot4*dm6 + lybot5*dm7 + lybot6*dm8)*1.0e06
++ lytop = (lytop1*am5 + lytop2*am6 + lytop3*am7 + lytop4*dm6 + lytop5*dm7 + lytop6*dm8)*1.0e06
++ ambot = (ambot1*am5 + ambot2*am6 + ambot3*am7)*1.0e06
++ amtop = (amtop1*am5 + amtop2*am6 + amtop3*am7)*1.0e06
++ e1bot =                                        (e1bot4*dm6 + e1bot5*dm7 + e1bot6*dm8)*1.0e06
++ e1top =                                        (e1top4*dm6 + e1top5*dm7 + e1top6*dm8)*1.0e06
++ mabot =                                        (mabot4*dm6 + mabot5*dm7 + mabot6*dm8)*1.0e06
++ matop =                                        (matop4*dm6 + matop5*dm7 + matop6*dm8)*1.0e06
+*
+* End metal layer stack
+* ================================================
+* Determine the effective dielectric constants and metal fill parameters.
+*
++ m1_eps_side = 4.078
++ m2_eps_side = 3.6
++ m3_eps_side = 3.6
++ m4_eps_side = 3.6
++ mq_eps_side = 3.6
++ ly_eps_side = 4.1
++ am_eps_side = 4.1
++ e1_eps_side = 4.1
++ ma_eps_side = 4.1
+*	
++ m1_eps_side_over = 4.47*am5 + 4.47*am6 + 4.47*am7 + 4.47*dm6 + 4.47*dm7 + 4.47*dm8
++ m2_eps_side_over = 4.59*am5 + 4.47*am6 + 4.47*am7 + 4.59*dm6 + 4.47*dm7 + 4.47*dm8
++ m3_eps_side_over = 4.47*am5 + 4.59*am6 + 4.47*am7 + 4.47*dm6 + 4.59*dm7 + 4.47*dm8
++ m4_eps_side_over = 4.59*am5 + 4.59*am6 + 4.59*am7 + 4.59*dm6 + 4.59*dm7 + 4.59*dm8
++ mq_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ly_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.14*dm6 + 4.14*dm7 + 4.14*dm8
++ am_eps_side_over = 3.81*am5 + 3.81*am6 + 3.81*am7
++ e1_eps_side_over =                                  4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ma_eps_side_over =                                  3.81*dm6 + 3.81*dm7 + 3.81*dm8
+*
++ m1_bot_4eps = 0.2267*am5 + 0.2267*am6 + 0.2267*am7 + 0.2267*dm6 + 0.2267*dm7 + 0.2267*dm8
++ m1_top_4eps = 0.3035*am5 + 0.3035*am6 + 0.3035*am7 + 0.3035*dm6 + 0.3035*dm7 + 0.3035*dm8
++ m2_bot_4eps = 0.3858*am5 + 0.3858*am6 + 0.3858*am7 + 0.3858*dm6 + 0.3858*dm7 + 0.3858*dm8
++ m2_top_4eps = 0.4747*am5 + 0.4747*am6 + 0.4747*am7 + 0.4747*dm6 + 0.4747*dm7 + 0.4747*dm8
++ m3_bot_4eps = 0.0000*am5 + 0.5571*am6 + 0.5571*am7 + 0.0000*dm6 + 0.5571*dm7 + 0.5571*dm8
++ m3_top_4eps = 0.0000*am5 + 0.6460*am6 + 0.6460*am7 + 0.0000*dm6 + 0.6460*dm7 + 0.6460*dm8
++ m4_bot_4eps = 0.0000*am5 + 0.0000*am6 + 0.7283*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.7283*dm8
++ m4_top_4eps = 0.0000*am5 + 0.0000*am6 + 0.8172*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.8172*dm8
++ mq_bot_4eps = 0.6404*am5 + 0.8117*am6 + 0.9829*am7 + 0.6404*dm6 + 0.8117*dm7 + 0.9829*dm8
++ mq_top_4eps = 0.7932*am5 + 0.9644*am6 + 1.1357*am7 + 0.7932*dm6 + 0.9644*dm7 + 1.1357*dm8
++ ly_bot_4eps = 1.7861*am5 + 1.9574*am6 + 2.1286*am7 + 1.7861*dm6 + 1.9574*dm7 + 2.1286*dm8
++ ly_top_4eps = 2.0910*am5 + 2.2622*am6 + 2.4335*am7 + 2.0910*dm6 + 2.2622*dm7 + 2.4335*dm8
++ am_bot_4eps = 3.0809*am5 + 3.2521*am6 + 3.4234*am7
++ am_top_4eps = 4.0456*am5 + 4.2168*am6 + 4.3880*am7
++ e1_bot_4eps =                                        3.0809*dm6 + 3.2521*dm7 + 3.4234*dm8
++ e1_top_4eps =                                        3.8055*dm6 + 3.9768*dm7 + 4.1480*dm8
++ ma_bot_4eps =                                        4.7911*dm6 + 4.9624*dm7 + 5.1336*dm8
++ ma_top_4eps =                                        5.7558*dm6 + 5.9271*dm7 + 6.0983*dm8
+*
++ m1_bot_fill = 0.00*am5 + 0.00*am6 + 0.00*am7 + 0.00*dm6 + 0.00*dm7 + 0.00*dm8
++ m1_top_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_bot_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_top_fill = 0.61*am5 + 0.61*am6 + 0.61*am7 + 0.61*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_bot_fill = 0.00*am5 + 0.61*am6 + 0.61*am7 + 0.00*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_top_fill = 0.00*am5 + 0.93*am6 + 0.93*am7 + 0.00*dm6 + 0.93*dm7 + 0.93*dm8
++ m4_bot_fill = 0.00*am5 + 0.00*am6 + 0.93*am7 + 0.00*dm6 + 0.00*dm7 + 0.93*dm8
++ m4_top_fill = 0.00*am5 + 0.00*am6 + 1.25*am7 + 0.00*dm6 + 0.00*dm7 + 1.25*dm8
++ mq_bot_fill = 0.61*am5 + 0.93*am6 + 1.25*am7 + 0.61*dm6 + 0.93*dm7 + 1.25*dm8
++ mq_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ am_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ am_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ e1_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ e1_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8	 
++ ma_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
+*
++ crossover_top_fill = m1_top_fill*(layer_top == 1)+m2_top_fill*(layer_top == 2)+m3_top_fill*(layer_top == 3)+m4_top_fill*(layer_top == 4)+mq_top_fill*(layer_top == 5)+ly_top_fill*(layer_top == 6)+am_top_fill*(layer_top == 7)+e1_top_fill*(layer_top == 8)+ma_top_fill*(layer_top == 9)
++ signal_top_fill = m1_top_fill*(layer_sig == 1)+m2_top_fill*(layer_sig == 2)+m3_top_fill*(layer_sig == 3)+m4_top_fill*(layer_sig == 4)+mq_top_fill*(layer_sig == 5)+ly_top_fill*(layer_sig == 6)+am_top_fill*(layer_sig == 7)+e1_top_fill*(layer_sig == 8)+ma_top_fill*(layer_sig == 9)
++ crossunder_top_fill = m1_top_fill*(layer_bot == 1)+m2_top_fill*(layer_bot == 2)+m3_top_fill*(layer_bot == 3)+m4_top_fill*(layer_bot == 4)+mq_top_fill*(layer_bot == 5)+ly_top_fill*(layer_bot == 6)+am_top_fill*(layer_bot == 7)+e1_top_fill*(layer_bot == 8)+ma_top_fill*(layer_bot == 9)
+*
++ crossover_bot_fill = m1_bot_fill*(layer_top == 1)+m2_bot_fill*(layer_top == 2)+m3_bot_fill*(layer_top == 3)+m4_bot_fill*(layer_top == 4)+mq_bot_fill*(layer_top == 5)+ly_bot_fill*(layer_top == 6)+am_bot_fill*(layer_top == 7)+e1_bot_fill*(layer_top == 8)+ma_bot_fill*(layer_top == 9)
++ signal_bot_fill = m1_bot_fill*(layer_sig == 1)+m2_bot_fill*(layer_sig == 2)+m3_bot_fill*(layer_sig == 3)+m4_bot_fill*(layer_sig == 4)+mq_bot_fill*(layer_sig == 5)+ly_bot_fill*(layer_sig == 6)+am_bot_fill*(layer_sig == 7)+e1_bot_fill*(layer_sig == 8)+ma_bot_fill*(layer_sig == 9)
++ crossunder_bot_fill = m1_bot_fill*(layer_bot == 1)+m2_bot_fill*(layer_bot == 2)+m3_bot_fill*(layer_bot == 3)+m4_bot_fill*(layer_bot == 4)+mq_bot_fill*(layer_bot == 5)+ly_bot_fill*(layer_bot == 6)+am_bot_fill*(layer_bot == 7)+e1_bot_fill*(layer_bot == 8)+ma_bot_fill*(layer_bot == 9)
+*
++ wfill = -1.0*(layer_sig == 1) + 0.9*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 1.2*(layer_sig == 5) + 0.0*(layer_sig == 6) + 0.0*(layer_sig == 7) + 0.0*(layer_sig == 8)+ 0.0*(layer_sig == 9)
++ sfill = -2.0*(layer_sig == 1) + 0.3*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.4*(layer_sig == 5) + -1.0*(layer_sig == 6) + -1.0*(layer_sig == 7) + -1.0*(layer_sig == 8) + -1.0*(layer_sig == 9)
++ sf2sh = -1.0*(layer_sig == 1) + 0.4*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.8*(layer_sig == 5) + -1.0*(layer_sig == 6) + -1.0*(layer_sig == 7) + -1.0*(layer_sig == 8) + -1.0*(layer_sig == 9)
++ denfillc = (denfill*(wfill - sfill)/(wfill*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4 || layer_sig == 5) + -1.0*(layer_sig == 1 || layer_sig == 6 || layer_sig == 7 || layer_sig == 8 || layer_sig == 9))*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4 || layer_sig == 5)) + 0.0*(layer_sig == 6 || layer_sig == 7 || layer_sig == 8 || layer_sig == 9)
+* ===============================================
+*
+* Calculation of feedback parameters, including wire widths.
+*
++ ELB = -0.0115*(layer_sig == 1) + 0.00*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + -0.022*(layer_sig == 5) + 0.0000*(layer_sig == 6) + 0.00*(layer_sig == 7) + 0.00*(layer_sig == 8) + 0.00*(layer_sig == 9)
++ PLB =  0.0000*(layer_sig == 1) + 0.01*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) +  0.010*(layer_sig == 5) + 0.0625*(layer_sig == 6) + 0.00*(layer_sig == 8) + (-1*0.08)*(((layer_sig == 7) + (layer_sig == 9))*(s_MICRONS >= 12.5)) + (-1*(((0.028*s_MICRONS)-0.19)/2))*(((layer_sig == 7) + (layer_sig == 9))*(s_MICRONS < 12.5))
++ Wo = 1.2*(layer_sig == 1) + 1.8*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 2.4*(layer_sig == 5) + 0*(layer_sig == 6) + 0*(layer_sig == 7) + 0*(layer_sig == 8) + 0*(layer_sig == 9)
++ Wmin = 0.16*(layer_sig == 1) + 0.20*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.40*(layer_sig == 5) + 1.52*(layer_sig == 6) + 2.0*(layer_sig == 7) + 1.5*(layer_sig == 8) + 2.0*(layer_sig == 9)
++ Rsquare = m1rs*(layer_sig == 1) + m2rs*(layer_sig == 2) + m3rs*(layer_sig == 3) + m4rs*(layer_sig == 4) + mqrs*(layer_sig == 5) + lyrs*(layer_sig == 6) + amrs*(layer_sig == 7) + e1rs*(layer_sig == 8) + mars*(layer_sig == 9)
++ TCR = tm1rs*(layer_sig == 1) + tm2rs*(layer_sig == 2) + tm3rs*(layer_sig == 3) + tm4rs*(layer_sig == 4) + tmqrs*(layer_sig == 5) + tlyrs*(layer_sig == 6) + tamrs*(layer_sig == 7) + te1rs*(layer_sig == 8) + tmars*(layer_sig == 9)
+*
++ Kslot = 0.5
++ MxPlaneLim = 50
+*
++ ws = Wmin
+*
++ w_c = w_MICRONS + 2*ELB + 2*PLB
+*
++ Wlim = 1.4*(layer_sig == 1) + 1.4*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 2.4*(layer_sig == 5) + 0*(layer_sig == 6) + 0*(layer_sig == 7) + 0*(layer_sig == 8) + 0*(layer_sig == 9)
++ Cheese = 0.7*(layer_sig == 1) + 0.7*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.7*(layer_sig == 5) + 1*(layer_sig == 6) + 1*(layer_sig == 7) + 1*(layer_sig == 8) + 1*(layer_sig == 9)
++ superCheese = 0.52*(layer_sig == 1) + 0.52*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.53*(layer_sig == 5) + 1*(layer_sig == 6) + 1*(layer_sig == 7) + 1*(layer_sig == 8) + 1*(layer_sig == 9)
++ cheeseK =  (((Wlim != 0) || (w_MICRONS > Wo)) && (w_MICRONS > MxPlaneLim)) ? superCheese : Cheese
++ delta_Whole_CHEESING = ((Wlim == 0) || (w_MICRONS <= Wo)) ? 0 : (cheeseK - 1)*(w_c - Wlim)
+*
++ delta_Whole = delta_Whole_CHEESING
+*
++ w_eff = w_c + delta_Whole
+*
++ Rpath = l*1e06*(Rsquare/w_eff)*(1 + TCR*(temp - Tref))
++ Rret = 0.5*Rpath
++ Rtot = Rpath + Rret
+*
+* End COMMON
+* ===============================================
+*
+* Begin High-Frequency Limit and Static Capacitance Calculation
+* Capacitance Model can be either "full plane" or "custom" which is determined
+* by the variable "crosstype", where "crosstype" = 0 (full plane) or 1 (custom).
+* If "full plane," then one of the crossing types "none/above/below/both" is
+* invoked by the variable "plane", where "plane" = 0 (none), 1 (above), 2 (below),
+* or 3 (both).
+*
+* Calculation of Capacitance for "full plane" crossing type (crosstype = "full plane")
+*
+* crossing type = none  -> signal-substrate (hc, th)
+* crossing type = above -> signal-substrate (h_over, h_under = hc)
+* crossing type = below -> signal-substrate (h_over, h_under)
+* crossing type = both  -> signal-substrate (h_under, th)
+*	hc = distance between signal layer bottom and top of substrate.
+*	th = signal layer thickness.
+*	h_over = distance between bottom of crossover layer and top of signal layer.
+*	h_under = distance bottom of signal layer and top of crossunder layer.
+*
+* First, determine hc, h_fill, and th ...
++ hc = m1bot*(layer_sig == 1) + m2bot*(layer_sig == 2) + m3bot*(layer_sig == 3) + m4bot*(layer_sig == 4) + mqbot*(layer_sig == 5) + lybot*(layer_sig == 6) + ambot*(layer_sig == 7)+ e1bot*(layer_sig == 8) + mabot*(layer_sig == 9) - si_top
++ h_fill = m1_bot_fill*(layer_sig == 1) + m2_bot_fill*(layer_sig == 2) + m3_bot_fill*(layer_sig == 3) + m4_bot_fill*(layer_sig == 4) + mq_bot_fill*(layer_sig == 5) + ly_bot_fill*(layer_sig == 6) + am_bot_fill*(layer_sig == 7) + e1_bot_fill*(layer_sig == 8) + ma_bot_fill*(layer_sig == 9) - si_top
++ th = (m1top - m1bot)*(layer_sig == 1) + (m2top - m2bot)*(layer_sig == 2) + (m3top - m3bot)*(layer_sig == 3) + (m4top - m4bot)*(layer_sig == 4) + (mqtop - mqbot)*(layer_sig == 5) + (lytop - lybot)*(layer_sig == 6) + (amtop - ambot)*(layer_sig == 7) + (e1top - e1bot)*(layer_sig == 8) + (matop - mabot)*(layer_sig == 9)
+*
++ h_by_eps = m1_bot_4eps*(layer_sig == 1) + m2_bot_4eps*(layer_sig == 2) + m3_bot_4eps*(layer_sig == 3) + m4_bot_4eps*(layer_sig == 4) + mq_bot_4eps*(layer_sig == 5) + ly_bot_4eps*(layer_sig == 6) + am_bot_4eps*(layer_sig == 7) + e1_bot_4eps*(layer_sig == 8) + ma_bot_4eps*(layer_sig == 9)
++ Epsilon_r = hc/h_by_eps
+*
++ eps_side = m1_eps_side*(layer_sig == 1) + m2_eps_side*(layer_sig == 2) + m3_eps_side*(layer_sig == 3) + m4_eps_side*(layer_sig == 4) + mq_eps_side*(layer_sig == 5) + ly_eps_side*(layer_sig == 6) + am_eps_side*(layer_sig == 7) + e1_eps_side*(layer_sig == 8) + ma_eps_side*(layer_sig == 9)
++ eps_side_over = m1_eps_side_over*(layer_sig == 1) + m2_eps_side_over*(layer_sig == 2) + m3_eps_side_over*(layer_sig == 3) + m4_eps_side_over*(layer_sig == 4) + mq_eps_side_over*(layer_sig == 5) + ly_eps_side_over*(layer_sig == 6) + am_eps_side_over*(layer_sig == 7) + e1_eps_side_over*(layer_sig == 8) + ma_eps_side_over*(layer_sig == 9)
+*
++ Epsilon_r_side = eps_side
++ Epsilon_r_ratio = Epsilon_r_side/Epsilon_r
+*
++ crossover_bot = m1bot*(layer_top == 1) + m2bot*(layer_top == 2) + m3bot*(layer_top == 3) + m4bot*(layer_top == 4) + mqbot*(layer_top == 5) + lybot*(layer_top == 6) + ambot*(layer_top == 7) + e1bot*(layer_top == 8) + mabot*(layer_top == 9)
++ crossover_top = m1top*(layer_top == 1) + m2top*(layer_top == 2) + m3top*(layer_top == 3) + m4top*(layer_top == 4) + mqtop*(layer_top == 5) + lytop*(layer_top == 6) + amtop*(layer_top == 7) + e1top*(layer_top == 8) + matop*(layer_top == 9)
++ signal_bot = m1bot*(layer_sig == 1) + m2bot*(layer_sig == 2) + m3bot*(layer_sig == 3) + m4bot*(layer_sig == 4) + mqbot*(layer_sig == 5) + lybot*(layer_sig == 6) + ambot*(layer_sig == 7) + e1bot*(layer_sig == 8) + mabot*(layer_sig == 9)
++ signal_top = m1top*(layer_sig == 1) + m2top*(layer_sig == 2) + m3top*(layer_sig == 3) + m4top*(layer_sig == 4) + mqtop*(layer_sig == 5) + lytop*(layer_sig == 6) + amtop*(layer_sig == 7) + e1top*(layer_sig == 8) + matop*(layer_sig == 9)
++ crossunder_bot = m1bot*(layer_bot == 1) + m2bot*(layer_bot == 2) + m3bot*(layer_bot == 3) + m4bot*(layer_bot == 4) + mqbot*(layer_bot == 5) + lybot*(layer_bot == 6) + ambot*(layer_bot == 7) + e1bot*(layer_bot == 8) + mabot*(layer_bot == 9)
++ crossunder_top = m1top*(layer_bot == 1) + m2top*(layer_bot == 2) + m3top*(layer_bot == 3) + m4top*(layer_bot == 4) + mqtop*(layer_bot == 5) + lytop*(layer_bot == 6) + amtop*(layer_bot == 7) + e1top*(layer_bot == 8) + matop*(layer_bot == 9)
+*
++ crossover_bot_4eps = m1_bot_4eps*(layer_top == 1) + m2_bot_4eps*(layer_top == 2) + m3_bot_4eps*(layer_top == 3) + m4_bot_4eps*(layer_top == 4) + mq_bot_4eps*(layer_top == 5) + ly_bot_4eps*(layer_top == 6) + am_bot_4eps*(layer_top == 7) + e1_bot_4eps*(layer_top == 8) + ma_bot_4eps*(layer_top == 9)
++ crossover_top_4eps = m1_top_4eps*(layer_top == 1) + m2_top_4eps*(layer_top == 2) + m3_top_4eps*(layer_top == 3) + m4_top_4eps*(layer_top == 4) + mq_top_4eps*(layer_top == 5) + ly_top_4eps*(layer_top == 6) + am_top_4eps*(layer_top == 7) + e1_top_4eps*(layer_top == 8) + ma_top_4eps*(layer_top == 9)
++ signal_bot_4eps = m1_bot_4eps*(layer_sig == 1) + m2_bot_4eps*(layer_sig == 2) + m3_bot_4eps*(layer_sig == 3) + m4_bot_4eps*(layer_sig == 4) + mq_bot_4eps*(layer_sig == 5) + ly_bot_4eps*(layer_sig == 6) + am_bot_4eps*(layer_sig == 7) + e1_bot_4eps*(layer_sig == 8) + ma_bot_4eps*(layer_sig == 9)
++ signal_top_4eps = m1_top_4eps*(layer_sig == 1) + m2_top_4eps*(layer_sig == 2) + m3_top_4eps*(layer_sig == 3) + m4_top_4eps*(layer_sig == 4) + mq_top_4eps*(layer_sig == 5) + ly_top_4eps*(layer_sig == 6) + am_top_4eps*(layer_sig == 7) + e1_top_4eps*(layer_sig == 8) + ma_top_4eps*(layer_sig == 9)
++ crossunder_bot_4eps = m1_bot_4eps*(layer_bot == 1) + m2_bot_4eps*(layer_bot == 2) + m3_bot_4eps*(layer_bot == 3) + m4_bot_4eps*(layer_bot == 4) + mq_bot_4eps*(layer_bot == 5) + ly_bot_4eps*(layer_bot == 6) + am_bot_4eps*(layer_bot == 7) + e1_bot_4eps*(layer_bot == 8) + ma_bot_4eps*(layer_bot == 9)
++ crossunder_top_4eps = m1_top_4eps*(layer_bot == 1) + m2_top_4eps*(layer_bot == 2) + m3_top_4eps*(layer_bot == 3) + m4_top_4eps*(layer_bot == 4) + mq_top_4eps*(layer_bot == 5) + ly_top_4eps*(layer_bot == 6) + am_top_4eps*(layer_bot == 7) + e1_top_4eps*(layer_bot == 8) + ma_top_4eps*(layer_bot == 9)
+*
++ h_under = (signal_bot - crossunder_top)*(plane == 2 || plane == 3) + (hc)*(plane == 0 || plane == 1)
++ h_fill_under = (signal_bot_fill - crossunder_top_fill)*(plane == 2 || plane == 3) + (0.0)*(plane == 0 || plane == 1)
++ h_by_eps_under = (signal_bot_4eps - crossunder_top_4eps)*(plane == 2 || plane == 3) + (1.0)*(plane == 0 || plane == 1)
++ Epsilon_r_under = (h_under/h_by_eps_under)*(plane == 2 || plane == 3) + (Epsilon_r)*(plane == 0 || plane == 1)
+*
++ h_over = (crossover_bot - signal_top)*(plane == 1 || plane == 3) + (1.0)*(plane == 0 || plane == 2)
++ h_fill_over = (crossover_bot_fill - signal_top_fill)*(plane == 1 || plane == 3) + (0.0)*(plane == 0 || plane == 2)
++ h_by_eps_over = (crossover_bot_4eps - signal_top_4eps)*(plane == 1 || plane == 3) + (1.0)*(plane == 0 || plane == 2)
++ Epsilon_r_over = (h_over/h_by_eps_over)*(plane == 1 || plane == 3) + (eps_side_over)*(plane == 0 || plane == 2) 
+*
+* Begin Ltot calculation for the nominal case ************************************************
+* High-Frequency Limit Inductance Calculation for Coupled-Wire Coplanar Waveguide without Substrate ...
+* Even Mode Capacitance ...
++ X1_IND = 1.1051
++ X2_IND = 0.9669
++ X3_IND = 1.0002
+*
++ Ccme =  Epsilon_r*E0*( 2.0*X1_IND*Epsilon_r_ratio*(th/s_MICRONS) + 4.0*X2_IND*(1.0/(pi - 2.0))*log(0.5*pi) + 4.0*X3_IND*(1.0/pi)*log(1.0 + 2.0*w_MICRONS/s_MICRONS) )
++ Cevena = 0.5*l*Ccme*(1.0 + 0.025*d_MICRONS/w_MICRONS)
+* Odd Mode and Mutual Capacitance (from common and single modes)
++ Y1_IND = 0.8784
++ Y2_IND = 1.3139
++ Y3_IND = 1.3495 
++ Y4_IND = 1.0033
++ Y5_IND = 1.0033
++ Y6_IND = 1.2819 
+*
++ Ccmo = Epsilon_r*E0*( 2.0*Y1_IND*Epsilon_r_ratio*(th/s_MICRONS) + 4.0*Y2_IND*(1.0/(pi - 2.0))*log(0.5*pi) + 4.0*Y3_IND*(1.0/pi)*log(1.0 + 2.0*w_MICRONS/s_MICRONS) )
++ Cleft = Epsilon_r*E0*( 2.0*Y4_IND* Epsilon_r_ratio*(th/s_MICRONS) + 4.0*Y5_IND*(1.0/(pi - 2.0))*log(0.5*pi) + 4.0*Y6_IND*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS) )
++ Cright = Epsilon_r*E0*( 2.0*Y4_IND*Epsilon_r_ratio*(th/d_MICRONS) + 4.0*Y5_IND*(1.0/(pi - 2.0))*log(0.5*pi) + 4.0*Y6_IND*(1.0/pi)*log(1.0 + w_MICRONS/d_MICRONS) )
++ Csmo = 0.5*(Cleft + Cright)
++ Cm = Csmo - 0.5*Ccmo
++ Codda = l*(0.5*Ccmo + 2.0*Cm)
++ Cca0 = l*Cm
++ Cca = Cca0*(0.5*(Codda - Cevena) < 0) + 0.5*(Codda - Cevena)*(0.5*(Codda - Cevena) >= 0)
+* Calculate time-of-flight ...
++ tof = l*sqrt(Epsilon_r)/3e8
+*
+* Calculate total inductance ...
++ Ltot_NOM = tof*tof*0.5*(Codda+Cevena)/(Codda*Cevena)
+*
+* Calculate Inductive Coupling Coefficient ... 
++ Mtot = tof*tof*Cca/(Codda*Cevena)
++ K_NOM = Mtot/Ltot_NOM
+*
+* End Ltot Calculation ***********************************************************************
+*
+* Next, calculate maximum length for given maximum bandwidth ...
++ lmax = (100.0/bwmax)*360.0
+*
+* High-Frequency Limit Capacitance Calculation for Coupled-Wires Coplanar Waveguide with Substrate ...
+* First, NO CROSSING LINES ...
+* Even Mode Capacitance ...
++ X1_CAP_NONE_EVEN = 1.2561
++ X2_CAP_NONE_EVEN = 1.0439
++ X3_CAP_NONE_EVEN = 0.8908
+*
++ C1_CAP_NONE_EVEN = X1_CAP_NONE_EVEN*Epsilon_r_side*E0*th/s_MICRONS
++ C2_CAP_NONE_EVEN = X2_CAP_NONE_EVEN*Epsilon_r*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_NONE_EVEN = X3_CAP_NONE_EVEN*Epsilon_r*E0*(1.0/pi)*log(1.0 + 2.0*w_MICRONS/s_MICRONS)
+*
++ Ccm_1_NONE_EVEN = 2.0*C1_CAP_NONE_EVEN + 4.0*C2_CAP_NONE_EVEN + 4.0*C3_CAP_NONE_EVEN
+*
++ C31_2_NONE_EVEN = Epsilon_r*E0*(1.0/pi)*log(2.0*hc/s_MICRONS)
++ x0_2_NONE_EVEN = 0.5*(0.5*(w_MICRONS + s_MICRONS) + hc)
++ h0_2_NONE_EVEN = sqrt(sqrt((x0_2_NONE_EVEN*x0_2_NONE_EVEN - hc*hc)*(x0_2_NONE_EVEN*x0_2_NONE_EVEN - hc*hc))) 
++ Epsilon_rs_2_NONE_EVEN = (hc*Epsilon_r + h0_2_NONE_EVEN*Epsilon_s)/(hc + h0_2_NONE_EVEN)
++ C32_2_NONE_EVEN =  Epsilon_rs_2_NONE_EVEN*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*hc))
++ C3s_2_NONE_EVEN = X3_CAP_NONE_EVEN*(C31_2_NONE_EVEN + C32_2_NONE_EVEN)
++ Ccm_2_NONE_EVEN = 2.0*C1_CAP_NONE_EVEN + 4.0*C2_CAP_NONE_EVEN + 2.0*(C3_CAP_NONE_EVEN + C3s_2_NONE_EVEN)
+*
++ C21_3_NONE_EVEN = Epsilon_r*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*hc/s_MICRONS) 
++ h0_3_NONE_1_EVEN = 0.5*(0.5*s_MICRONS - hc)
++ Epsilon_rs_3_NONE_1_EVEN = (hc*Epsilon_r + 0.75*h0_3_NONE_1_EVEN*Epsilon_s)/(hc + h0_3_NONE_1_EVEN)
++ C22_3_NONE_EVEN = Epsilon_rs_3_NONE_1_EVEN*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*hc + 2.0*s_MICRONS))
++ C2s_3_NONE_EVEN =  X2_CAP_NONE_EVEN*(C21_3_NONE_EVEN + C22_3_NONE_EVEN)
++ C31_3_NONE_EVEN = 0.0
++ x0_3_NONE_EVEN = 0.5*(w_MICRONS + s_MICRONS)
+*+ h0_3_NONE_2_EVEN = sqrt(x0_3_NONE_EVEN*x0_3_NONE_EVEN - hc*hc)
++ h0_3_NONE_2_EVEN = sqrt(sqrt((x0_3_NONE_EVEN*x0_3_NONE_EVEN - hc*hc)*(x0_3_NONE_EVEN*x0_3_NONE_EVEN - hc*hc)))
++ Epsilon_rs_3_NONE_2_EVEN = (hc*Epsilon_r + h0_3_NONE_2_EVEN*Epsilon_s)/(hc + h0_3_NONE_2_EVEN)
++ C32_3_NONE_EVEN = Epsilon_rs_3_NONE_2_EVEN*E0*(1.0/pi)*log(1.0 + 2.0*w_MICRONS/s_MICRONS)
++ C3s_3_NONE_EVEN = X3_CAP_NONE_EVEN*(C31_3_NONE_EVEN + C32_3_NONE_EVEN)
++ Ccm_3_NONE_EVEN = 2.0*C1_CAP_NONE_EVEN + 2.0*(C2_CAP_NONE_EVEN + C2s_3_NONE_EVEN) + 2.0*(C3_CAP_NONE_EVEN + C3s_3_NONE_EVEN)
+*
++ Ccm_TMP_NONE_EVEN = Ccm_1_NONE_EVEN*(hc > (w_MICRONS + s_MICRONS/2)) + Ccm_2_NONE_EVEN*(hc > s_MICRONS/2 && hc <= (w_MICRONS + s_MICRONS/2)) + Ccm_3_NONE_EVEN*(hc <= s_MICRONS/2)
++ Ccm_NONE_EVEN = l*Ccm_TMP_NONE_EVEN
++ Ceven_CAP_NONE = 0.5*(1.0 + 0.025*d_MICRONS/w_MICRONS)*Ccm_NONE_EVEN
+*
+* Odd Mode Capacitance ...
++ X1_CAP_NONE_ODD = 1.0954
++ X2_CAP_NONE_ODD = 0.8013
++ X3_CAP_NONE_ODD = 0.9623
+*
++ C1_CAP_NONE_ODD = X1_CAP_NONE_ODD*Epsilon_r_side*E0*th/s_MICRONS
++ C2_CAP_NONE_ODD = X2_CAP_NONE_ODD*Epsilon_r*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_NONE_ODD = X3_CAP_NONE_ODD*Epsilon_r*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Ccm_1_NONE_ODD = 2.0*C1_CAP_NONE_ODD + 4.0*C2_CAP_NONE_ODD + 4.0*C3_CAP_NONE_ODD
+*
++ C31_2_NONE_ODD = Epsilon_r*E0*(1.0/pi)*log(2.0*hc/s_MICRONS)
++ x0_2_NONE_ODD = 0.5*(0.5*(w_MICRONS + s_MICRONS) + hc)
++ h0_2_NONE_ODD = sqrt(sqrt((x0_2_NONE_ODD*x0_2_NONE_ODD - hc*hc)*(x0_2_NONE_ODD*x0_2_NONE_ODD - hc*hc))) 
++ Epsilon_rs_2_NONE_ODD = (hc*Epsilon_r + h0_2_NONE_ODD*Epsilon_s)/(hc + h0_2_NONE_ODD)
++ C32_2_NONE_ODD =  Epsilon_rs_2_NONE_ODD*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*hc))
++ C3s_2_NONE_ODD = X3_CAP_NONE_ODD*(C31_2_NONE_ODD + C32_2_NONE_ODD)
++ Ccm_2_NONE_ODD = 2.0*C1_CAP_NONE_ODD + 4.0*C2_CAP_NONE_ODD + 2.0*(C3_CAP_NONE_ODD + C3s_2_NONE_ODD)
+*
++ C21_3_NONE_ODD = Epsilon_r*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*hc/s_MICRONS) 
++ h0_3_NONE_1_ODD = 0.5*(0.5*s_MICRONS - hc)
++ Epsilon_rs_3_NONE_1_ODD = (hc*Epsilon_r + 0.75*h0_3_NONE_1_ODD*Epsilon_s)/(hc + h0_3_NONE_1_ODD)
++ C22_3_NONE_ODD = Epsilon_rs_3_NONE_1_ODD*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*hc + 2.0*s_MICRONS))
++ C2s_3_NONE_ODD =  X2_CAP_NONE_ODD*(C21_3_NONE_ODD + C22_3_NONE_ODD)
++ C31_3_NONE_ODD = 0.0
++ x0_3_NONE_ODD = 0.5*(0.5*w_MICRONS + s_MICRONS)
++ h0_3_NONE_2_ODD = sqrt(sqrt((x0_3_NONE_ODD*x0_3_NONE_ODD - hc*hc)*(x0_3_NONE_ODD*x0_3_NONE_ODD - hc*hc)))
++ Epsilon_rs_3_NONE_2_ODD = (hc*Epsilon_r + h0_3_NONE_2_ODD*Epsilon_s)/(hc + h0_3_NONE_2_ODD)
++ C32_3_NONE_ODD = Epsilon_rs_3_NONE_2_ODD*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
++ C3s_3_NONE_ODD = X3_CAP_NONE_ODD*(C31_3_NONE_ODD + C32_3_NONE_ODD)
++ Ccm_3_NONE_ODD = 2.0*C1_CAP_NONE_ODD + 2.0*(C2_CAP_NONE_ODD + C2s_3_NONE_ODD) + 2.0*(C3_CAP_NONE_ODD + C3s_3_NONE_ODD)
+*
++ Ccm_TMP_NONE_ODD = Ccm_1_NONE_ODD*(hc > (w_MICRONS + s_MICRONS)/2) + Ccm_2_NONE_ODD*(hc > s_MICRONS/2 && hc <= (w_MICRONS + s_MICRONS)/2) + Ccm_3_NONE_ODD*(hc <= s_MICRONS/2)
++ Ccm_NONE_ODD = l*Ccm_TMP_NONE_ODD
+*
+* Odd Mode Capacitance with s... 
++ X1_CAP_NONE_ODD_s = 1.1210
++ X2_CAP_NONE_ODD_s = 0.8925
++ X3_CAP_NONE_ODD_s = 1.1406
+* 
++ C1_CAP_NONE_ODD_s = X1_CAP_NONE_ODD_s*Epsilon_r_side*E0*th/s_MICRONS
++ C2_CAP_NONE_ODD_s = X2_CAP_NONE_ODD_s*Epsilon_r*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_NONE_ODD_s = X3_CAP_NONE_ODD_s*Epsilon_r*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Cinf_1_NONE_ODD_s = 2.0*C1_CAP_NONE_ODD_s + 4.0*C2_CAP_NONE_ODD_s + 4.0*C3_CAP_NONE_ODD_s
+*
++ C31_2_NONE_ODD_s = Epsilon_r*E0*(1.0/pi)*log(2.0*hc/s_MICRONS)
++ x0_2_NONE_ODD_s = 0.5*(0.5*(w_MICRONS + s_MICRONS) + hc)
++ h0_2_NONE_ODD_s = sqrt(sqrt((x0_2_NONE_ODD_s*x0_2_NONE_ODD_s - hc*hc)*(x0_2_NONE_ODD_s*x0_2_NONE_ODD_s - hc*hc))) 
++ Epsilon_rs_2_NONE_ODD_s = (hc*Epsilon_r + h0_2_NONE_ODD_s*Epsilon_s)/(hc + h0_2_NONE_ODD_s)
++ C32_2_NONE_ODD_s =  Epsilon_rs_2_NONE_ODD_s*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*hc))
++ C3s_2_NONE_ODD_s = X3_CAP_NONE_ODD_s*(C31_2_NONE_ODD_s + C32_2_NONE_ODD_s)
++ Cinf_2_NONE_ODD_s = 2.0*C1_CAP_NONE_ODD_s + 4.0*C2_CAP_NONE_ODD_s + 2.0*(C3_CAP_NONE_ODD_s + C3s_2_NONE_ODD_s)
+*
++ C21_3_NONE_ODD_s = Epsilon_r*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*hc/s_MICRONS) 
++ h0_3_NONE_1_ODD_s = 0.5*(0.5*s_MICRONS - hc)
++ Epsilon_rs_3_NONE_1_ODD_s = (hc*Epsilon_r + 0.75*h0_3_NONE_1_ODD_s*Epsilon_s)/(hc + h0_3_NONE_1_ODD_s)
++ C22_3_NONE_ODD_s = Epsilon_rs_3_NONE_1_ODD_s*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*hc + 2.0*s_MICRONS))
++ C2s_3_NONE_ODD_s =  X2_CAP_NONE_ODD_s*(C21_3_NONE_ODD_s + C22_3_NONE_ODD_s)
++ C31_3_NONE_ODD_s = 0.0
++ x0_3_NONE_ODD_s = 0.5*(0.5*w_MICRONS + s_MICRONS)
++ h0_3_NONE_2_ODD_s = sqrt(sqrt((x0_3_NONE_ODD_s*x0_3_NONE_ODD_s - hc*hc)*(x0_3_NONE_ODD_s*x0_3_NONE_ODD_s - hc*hc)))
++ Epsilon_rs_3_NONE_2_ODD_s = (hc*Epsilon_r + h0_3_NONE_2_ODD_s*Epsilon_s)/(hc + h0_3_NONE_2_ODD_s)
++ C32_3_NONE_ODD_s = Epsilon_rs_3_NONE_2_ODD_s*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
++ C3s_3_NONE_ODD_s = X3_CAP_NONE_ODD_s*(C31_3_NONE_ODD_s + C32_3_NONE_ODD_s)
++ Cinf_3_NONE_ODD_s = 2.0*C1_CAP_NONE_ODD_s + 2.0*(C2_CAP_NONE_ODD_s + C2s_3_NONE_ODD_s) + 2.0*(C3_CAP_NONE_ODD_s + C3s_3_NONE_ODD_s)
+*
++ Cinf_TMP_NONE_ODD_s = Cinf_1_NONE_ODD_s*(hc > (w_MICRONS + s_MICRONS)/2) + Cinf_2_NONE_ODD_s*(hc > s_MICRONS/2 && hc <= (w_MICRONS + s_MICRONS)/2) + Cinf_3_NONE_ODD_s*(hc <= s_MICRONS/2)
++ Csm_s_NONE_ODD = l*Cinf_TMP_NONE_ODD_s
+*
+* Odd Mode Capacitance with d... 
++ X1_CAP_NONE_ODD_d = 1.1210
++ X2_CAP_NONE_ODD_d = 0.8925
++ X3_CAP_NONE_ODD_d = 1.1406
+* 
++ C1_CAP_NONE_ODD_d = X1_CAP_NONE_ODD_d*Epsilon_r_side*E0*th/d_MICRONS
++ C2_CAP_NONE_ODD_d = X2_CAP_NONE_ODD_d*Epsilon_r*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_NONE_ODD_d = X3_CAP_NONE_ODD_d*Epsilon_r*E0*(1.0/pi)*log(1.0 + w_MICRONS/d_MICRONS)
+*
++ Cinf_d_NONE_ODD = 2.0*C1_CAP_NONE_ODD_d + 4.0*C2_CAP_NONE_ODD_d + 4.0*C3_CAP_NONE_ODD_d
+*
++ C31_2_NONE_ODD_d = Epsilon_r*E0*(1.0/pi)*log(2.0*hc/d_MICRONS)
++ x0_2_NONE_ODD_d = 0.5*(0.5*(w_MICRONS + d_MICRONS) + hc)
++ h0_2_NONE_ODD_d = sqrt(sqrt((x0_2_NONE_ODD_d*x0_2_NONE_ODD_d - hc*hc)*(x0_2_NONE_ODD_d*x0_2_NONE_ODD_d - hc*hc))) 
++ Epsilon_rs_2_NONE_ODD_d = (hc*Epsilon_r + h0_2_NONE_ODD_d*Epsilon_s)/(hc + h0_2_NONE_ODD_d)
++ C32_2_NONE_ODD_d =  Epsilon_rs_2_NONE_ODD_d*E0*(1.0/pi)*log((w_MICRONS + d_MICRONS)/(2.0*hc))
++ C3s_2_NONE_ODD_d = X3_CAP_NONE_ODD_d*(C31_2_NONE_ODD_d + C32_2_NONE_ODD_d)
++ Cinf_2_NONE_ODD = 2.0*C1_CAP_NONE_ODD_d + 4.0*C2_CAP_NONE_ODD_d + 2.0*(C3_CAP_NONE_ODD_d + C3s_2_NONE_ODD_d)
+*
++ C21_3_NONE_ODD_d = Epsilon_r*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*hc/d_MICRONS) 
++ h0_3_NONE_d_ODD_d = 0.5*(0.5*d_MICRONS - hc)
++ Epsilon_rs_3_NONE_d_ODD_d = (hc*Epsilon_r + 0.75*h0_3_NONE_d_ODD_d*Epsilon_s)/(hc + h0_3_NONE_d_ODD_d)
++ C22_3_NONE_ODD_d = Epsilon_rs_3_NONE_d_ODD_d*E0*(1.0/(pi - 2.0))*log(pi*d_MICRONS/(2.0*(pi - 2)*hc + 2.0*d_MICRONS))
++ C2s_3_NONE_ODD_d =  X2_CAP_NONE_ODD_d*(C21_3_NONE_ODD_d + C22_3_NONE_ODD_d)
++ C31_3_NONE_ODD_d = 0.0
++ x0_3_NONE_ODD_d = 0.5*(0.5*w_MICRONS + d_MICRONS)
++ h0_3_NONE_2_ODD_d = sqrt(sqrt((x0_3_NONE_ODD_d*x0_3_NONE_ODD_d - hc*hc)*(x0_3_NONE_ODD_d*x0_3_NONE_ODD_d - hc*hc)))
++ Epsilon_rs_3_NONE_2_ODD_d = (hc*Epsilon_r + h0_3_NONE_2_ODD_d*Epsilon_s)/(hc + h0_3_NONE_2_ODD_d)
++ C32_3_NONE_ODD_d = Epsilon_rs_3_NONE_2_ODD_d*E0*(1.0/pi)*log(1.0 + w_MICRONS/d_MICRONS)
++ C3s_3_NONE_ODD_d = X3_CAP_NONE_ODD_d*(C31_3_NONE_ODD_d + C32_3_NONE_ODD_d)
++ Cinf_3_NONE_ODD = 2.0*C1_CAP_NONE_ODD_d + 2.0*(C2_CAP_NONE_ODD_d + C2s_3_NONE_ODD_d) + 2.0*(C3_CAP_NONE_ODD_d + C3s_3_NONE_ODD_d)
+*
++ Cinf_TMP_NONE_ODD_d = Cinf_d_NONE_ODD*(hc > (w_MICRONS + d_MICRONS)/2) + Cinf_2_NONE_ODD*(hc > d_MICRONS/2 && hc <= (w_MICRONS + d_MICRONS)/2) + Cinf_3_NONE_ODD*(hc <= d_MICRONS/2)
++ Csm_d_NONE_ODD = l*Cinf_TMP_NONE_ODD_d
+*
++ Csm_NONE = 0.5*(Csm_s_NONE_ODD + Csm_d_NONE_ODD) 
++ Cm_CAP_NONE = Csm_NONE - 0.5*Ccm_NONE_ODD
+*
++ Codd_CAP_NONE =  0.5*Ccm_NONE_ODD + 2.0*Cm_CAP_NONE   
++ Cc_CAP_NONE = Cm_CAP_NONE      
+*       
+* Next, ABOVE CROSSING LINES ...
++ th1_CAP_ABOVE = th*h_over/(h_under + h_over)
++ th2_CAP_ABOVE = th*h_under/(h_under + h_over)
+*
+* First, for h_under and th1_CAP_ABOVE ...
+* Even Mode Capacitance 
++ X1_CAP_ABOVE_EVEN = 1.5556
++ X2_CAP_ABOVE_EVEN = 1.2175
++ X3_CAP_ABOVE_EVEN = 0.7957
+*
++ C1_CAP_ABOVE_EVEN = Epsilon_r_side*E0*X1_CAP_ABOVE_EVEN*th1_CAP_ABOVE/s_MICRONS 
++ C2_CAP_ABOVE_EVEN = Epsilon_r_under*E0*X2_CAP_ABOVE_EVEN*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_ABOVE_EVEN = Epsilon_r_under*E0*X3_CAP_ABOVE_EVEN*(1.0/pi)*log(1.0 + 2.0*w_MICRONS/s_MICRONS)
+*    
++ Ccm_ABOVE_EVEN_1 = 2.0*C1_CAP_ABOVE_EVEN + 2.0*C2_CAP_ABOVE_EVEN + 2.0*C3_CAP_ABOVE_EVEN    
+*
++ C31_ABOVE_EVEN_1 = Epsilon_r_under*E0*(1.0/pi)*log(2.0*h_under/s_MICRONS) 
++ x0_ABOVE_EVEN_1 = 0.5*((w_MICRONS + 0.5*s_MICRONS) + h_under) 
+* square root of negative error:
++ h0_ABOVE_EVEN_1 = sqrt(sqrt((x0_ABOVE_EVEN_1*x0_ABOVE_EVEN_1 - h_under*h_under)*(x0_ABOVE_EVEN_1*x0_ABOVE_EVEN_1 - h_under*h_under)))
++ Epsilon_rs_ABOVE_EVEN_1 = (h_under*Epsilon_r_under + h0_ABOVE_EVEN_1*Epsilon_s)/(h_under + h0_ABOVE_EVEN_1) 
++ C32_ABOVE_EVEN_1 =  Epsilon_rs_ABOVE_EVEN_1*E0*(1.0/pi)*log((2.0*w_MICRONS + s_MICRONS)/(2.0*h_under))
++ C3s_ABOVE_EVEN_1 = X3_CAP_ABOVE_EVEN*(C31_ABOVE_EVEN_1 + C32_ABOVE_EVEN_1)
++ Ccm_ABOVE_EVEN_2 = 2.0*C1_CAP_ABOVE_EVEN + 2.0*C2_CAP_ABOVE_EVEN + 2.0*C3s_ABOVE_EVEN_1
+*
++ C21_ABOVE_EVEN_2 = Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(1.0+(pi-2.0)*h_under/s_MICRONS)
++ h0_ABOVE_EVEN_2 = 0.5*(0.5*s_MICRONS - h_under)
++ Epsilon_rs_ABOVE_EVEN_2 = (h_under*Epsilon_r_under + 0.75*h0_ABOVE_EVEN_2*Epsilon_s)/(h_under + h0_ABOVE_EVEN_2) 
++ C22_ABOVE_EVEN_2 = Epsilon_rs_ABOVE_EVEN_2*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi-2)*h_under + 2.0*s_MICRONS))
++ C2s_ABOVE_EVEN_2 =  X2_CAP_ABOVE_EVEN*(C21_ABOVE_EVEN_2 + C22_ABOVE_EVEN_2)
++ C31_ABOVE_EVEN_2 = 0.0
++ x0_ABOVE_EVEN_2 = 0.5*(w_MICRONS + s_MICRONS) 
+* square root of negative error:
++ h0_ABOVE_EVEN_3 = sqrt(sqrt((x0_ABOVE_EVEN_2*x0_ABOVE_EVEN_2 - h_under*h_under)*(x0_ABOVE_EVEN_2*x0_ABOVE_EVEN_2 - h_under*h_under))) 
++ Epsilon_rs_ABOVE_EVEN_3 = (h_under*Epsilon_r_under + h0_ABOVE_EVEN_3*Epsilon_s)/(h_under + h0_ABOVE_EVEN_3) 
++ C32_ABOVE_EVEN_2 = Epsilon_rs_ABOVE_EVEN_3*E0*(1.0/pi)*log(1.0 +  2.0*w_MICRONS/s_MICRONS) 
++ C3s_ABOVE_EVEN_2 = X3_CAP_ABOVE_EVEN*(C31_ABOVE_EVEN_2 + C32_ABOVE_EVEN_2)
++ Ccm_ABOVE_EVEN_3 = 2.0*C1_CAP_ABOVE_EVEN + 2.0*C2s_ABOVE_EVEN_2 + 2.0*C3s_ABOVE_EVEN_2
+*
++ Ccm_TMP_ABOVE_EVEN = Ccm_ABOVE_EVEN_1*(h_under > w_MICRONS + s_MICRONS/2) + Ccm_ABOVE_EVEN_2*(h_under > s_MICRONS/2 && h_under <= w_MICRONS + s_MICRONS/2) + Ccm_ABOVE_EVEN_3*(h_under <= s_MICRONS/2)
++ Ccm_ABOVE_EVEN = l*Ccm_TMP_ABOVE_EVEN  
++ C1even_ABOVE = 0.5*(1.0 + 0.025*d_MICRONS/w_MICRONS)*Ccm_ABOVE_EVEN
+*
+* Odd Mode and Mutual Capacitance ...
+* Odd Mode Capacitance 
++ X1_CAP_ABOVE_ODD = 1.0513
++ X2_CAP_ABOVE_ODD = 0.6086
++ X3_CAP_ABOVE_ODD = 0.7202
+*
++ C1_CAP_ABOVE_ODD = Epsilon_r_side*E0*X1_CAP_ABOVE_ODD*th1_CAP_ABOVE/s_MICRONS 
++ C2_CAP_ABOVE_ODD = Epsilon_r_under*E0*X2_CAP_ABOVE_ODD*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_ABOVE_ODD = Epsilon_r_under*E0*X3_CAP_ABOVE_ODD*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*    
++ Ccm_ABOVE_ODD_1 = 2.0*C1_CAP_ABOVE_ODD + 2.0*C2_CAP_ABOVE_ODD + 2.0*C3_CAP_ABOVE_ODD    
+*
++ C31_ABOVE_ODD_1 = Epsilon_r_under*E0*(1.0/pi)*log(2.0*h_under/s_MICRONS) 
++ x0_ABOVE_ODD_1 = 0.5*((w_MICRONS + 0.5*s_MICRONS) + h_under) 
+* square root of negative error:
++ h0_ABOVE_ODD_1 = sqrt(sqrt((x0_ABOVE_ODD_1*x0_ABOVE_ODD_1 - h_under*h_under)*(x0_ABOVE_ODD_1*x0_ABOVE_ODD_1 - h_under*h_under)))
++ Epsilon_rs_ABOVE_ODD_1 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_1*Epsilon_s)/(h_under + h0_ABOVE_ODD_1) 
++ C32_ABOVE_ODD_1 =  Epsilon_rs_ABOVE_ODD_1*E0*(1.0/pi)*log((2.0*w_MICRONS + s_MICRONS)/(2.0*h_under))
++ C3s_ABOVE_ODD_1 = X3_CAP_ABOVE_ODD*(C31_ABOVE_ODD_1 + C32_ABOVE_ODD_1)
++ Ccm_ABOVE_ODD_2 = 2.0*C1_CAP_ABOVE_ODD + 2.0*C2_CAP_ABOVE_ODD + 2.0*C3s_ABOVE_ODD_1
+*
++ C21_ABOVE_ODD_2 = Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(1.0+(pi-2.0)*h_under/s_MICRONS)
++ h0_ABOVE_ODD_2 = 0.5*(0.5*s_MICRONS - h_under)
++ Epsilon_rs_ABOVE_ODD_2 = (h_under*Epsilon_r_under + 0.75*h0_ABOVE_ODD_2*Epsilon_s)/(h_under + h0_ABOVE_ODD_2) 
++ C22_ABOVE_ODD_2 = Epsilon_rs_ABOVE_ODD_2*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi-2)*h_under + 2.0*s_MICRONS))
++ C2s_ABOVE_ODD_2 =  X2_CAP_ABOVE_ODD*(C21_ABOVE_ODD_2 + C22_ABOVE_ODD_2)
++ C31_ABOVE_ODD_2 = 0.0
++ x0_ABOVE_ODD_2 = 0.5*(w_MICRONS + s_MICRONS) 
+* square root of negative error:
++ h0_ABOVE_ODD_3 = sqrt(sqrt((x0_ABOVE_ODD_2*x0_ABOVE_ODD_2 - h_under*h_under)*(x0_ABOVE_ODD_2*x0_ABOVE_ODD_2 - h_under*h_under))) 
++ Epsilon_rs_ABOVE_ODD_3 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_3*Epsilon_s)/(h_under + h0_ABOVE_ODD_3) 
++ C32_ABOVE_ODD_2 = Epsilon_rs_ABOVE_ODD_3*E0*(1.0/pi)*log(1.0 +  2.0*w_MICRONS/s_MICRONS) 
++ C3s_ABOVE_ODD_2 = X3_CAP_ABOVE_ODD*(C31_ABOVE_ODD_2 + C32_ABOVE_ODD_2)
++ Ccm_ABOVE_ODD_3 = 2.0*C1_CAP_ABOVE_ODD + 2.0*C2s_ABOVE_ODD_2 + 2.0*C3s_ABOVE_ODD_2
+*
++ Ccm_TMP_ABOVE_ODD = Ccm_ABOVE_ODD_1*(h_under > w_MICRONS + s_MICRONS/2) + Ccm_ABOVE_ODD_2*(h_under > s_MICRONS/2 && h_under <= w_MICRONS + s_MICRONS/2) + Ccm_ABOVE_ODD_3*(h_under <= s_MICRONS/2)
++ Ccm_ABOVE_ODD = l*Ccm_TMP_ABOVE_ODD  
+*
+* Odd Mode Capacitance with s... 
++ X1_CAP_ABOVE_ODD_s = 1.2615
++ X2_CAP_ABOVE_ODD_s = 0.7194
++ X3_CAP_ABOVE_ODD_s = 1.0294
+* 
++ C1_CAP_ABOVE_ODD_s = X1_CAP_ABOVE_ODD_s*Epsilon_r_side*E0*th1_CAP_ABOVE/s_MICRONS
++ C2_CAP_ABOVE_ODD_s = X2_CAP_ABOVE_ODD_s*Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_ABOVE_ODD_s = X3_CAP_ABOVE_ODD_s*Epsilon_r_under*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Cinf_ABOVE_ODD_s_1 = 2.0*C1_CAP_ABOVE_ODD_s + 2.0*C2_CAP_ABOVE_ODD_s + 2.0*C3_CAP_ABOVE_ODD_s
+*
++ C31_ABOVE_ODD_s_2 = Epsilon_r_under*E0*(1.0/pi)*log(2.0*h_under/s_MICRONS)
++ x0_ABOVE_ODD_s_2 = 0.5*(0.5*(w_MICRONS + s_MICRONS) + h_under)
+* square root of negative error:
++ h0_ABOVE_ODD_s_2 = sqrt(sqrt((x0_ABOVE_ODD_s_2*x0_ABOVE_ODD_s_2 - h_under*h_under)*(x0_ABOVE_ODD_s_2*x0_ABOVE_ODD_s_2 - h_under*h_under))) 
++ Epsilon_rs_ABOVE_ODD_s_2 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_s_2*Epsilon_s)/(h_under + h0_ABOVE_ODD_s_2)
++ C32_ABOVE_ODD_s_2 =  Epsilon_rs_ABOVE_ODD_s_2*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*h_under))
++ C3s_ABOVE_ODD_s_2 = X3_CAP_ABOVE_ODD_s*(C31_ABOVE_ODD_s_2 + C32_ABOVE_ODD_s_2)
++ Cinf_ABOVE_ODD_s_2 = 2.0*C1_CAP_ABOVE_ODD_s + 2.0*C2_CAP_ABOVE_ODD_s + 2.0*C3s_ABOVE_ODD_s_2
+*
++ C21_ABOVE_ODD_s_3 = Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*h_under/s_MICRONS) 
++ h0_ABOVE_ODD_s_3 = 0.5*(0.5*s_MICRONS - h_under)
++ Epsilon_rs_ABOVE_ODD_s_3 = (h_under*Epsilon_r_under + 0.75*h0_ABOVE_ODD_s_3*Epsilon_s)/(hc + h0_ABOVE_ODD_s_3)
++ C22_ABOVE_ODD_s_3 = Epsilon_rs_ABOVE_ODD_s_3*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*h_under + 2.0*s_MICRONS))
++ C2s_ABOVE_ODD_s_3 =  X2_CAP_ABOVE_ODD_s*(C21_ABOVE_ODD_s_3 + C22_ABOVE_ODD_s_3)
++ C31_ABOVE_ODD_s_3 = 0.0
++ x0_ABOVE_ODD_s_3 = 0.5*(0.5*w_MICRONS + s_MICRONS)
+* square root of negative error:
++ h0_ABOVE_ODD_s_4 = sqrt(sqrt((x0_ABOVE_ODD_s_3*x0_ABOVE_ODD_s_3 - h_under*h_under)*(x0_ABOVE_ODD_s_3*x0_ABOVE_ODD_s_3 - h_under*h_under)))
++ Epsilon_rs_ABOVE_ODD_s_4 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_s_4*Epsilon_s)/(h_under + h0_ABOVE_ODD_s_4)
++ C32_ABOVE_ODD_s_3 = Epsilon_rs_ABOVE_ODD_s_4*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
++ C3s_ABOVE_ODD_s_3 = X3_CAP_ABOVE_ODD_s*(C31_ABOVE_ODD_s_3 + C32_ABOVE_ODD_s_3)
++ Cinf_ABOVE_ODD_s_3 = 2.0*C1_CAP_ABOVE_ODD_s + 2.0*C2s_ABOVE_ODD_s_3 + 2.0*C3s_ABOVE_ODD_s_3
+*
++ Cinf_TMP_ABOVE_ODD_s = Cinf_ABOVE_ODD_s_1*(h_under > (w_MICRONS + s_MICRONS)/2) + Cinf_ABOVE_ODD_s_2*(h_under > s_MICRONS/2 && h_under <= (w_MICRONS + s_MICRONS)/2) + Cinf_ABOVE_ODD_s_3*(h_under <= s_MICRONS/2)
++ Csm_s_ABOVE_ODD = l*Cinf_TMP_ABOVE_ODD_s 
+*
+* Odd Mode Capacitance with d... 
++ X1_CAP_ABOVE_ODD_d = 1.2615
++ X2_CAP_ABOVE_ODD_d = 0.7194
++ X3_CAP_ABOVE_ODD_d = 1.0294
+* 
++ C1_CAP_ABOVE_ODD_d = X1_CAP_ABOVE_ODD_d*Epsilon_r_side*E0*th1_CAP_ABOVE/s_MICRONS
++ C2_CAP_ABOVE_ODD_d = X2_CAP_ABOVE_ODD_d*Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_ABOVE_ODD_d = X3_CAP_ABOVE_ODD_d*Epsilon_r_under*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Cinf_ABOVE_ODD_d_1 = 2.0*C1_CAP_ABOVE_ODD_d + 2.0*C2_CAP_ABOVE_ODD_d + 2.0*C3_CAP_ABOVE_ODD_d
+*
++ C31_ABOVE_ODD_d_2 = Epsilon_r_under*E0*(1.0/pi)*log(2.0*h_under/s_MICRONS)
++ x0_ABOVE_ODD_d_2 = 0.5*(0.5*(w_MICRONS + s_MICRONS) + h_under)
+* square root of negative error:
++ h0_ABOVE_ODD_d_2 = sqrt(sqrt((x0_ABOVE_ODD_d_2*x0_ABOVE_ODD_d_2 - h_under*h_under)*(x0_ABOVE_ODD_d_2*x0_ABOVE_ODD_d_2 - h_under*h_under))) 
++ Epsilon_rs_ABOVE_ODD_d_2 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_d_2*Epsilon_s)/(h_under + h0_ABOVE_ODD_d_2)
++ C32_ABOVE_ODD_d_2 =  Epsilon_rs_ABOVE_ODD_d_2*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*h_under))
++ C3s_ABOVE_ODD_d_2 = X3_CAP_ABOVE_ODD_d*(C31_ABOVE_ODD_d_2 + C32_ABOVE_ODD_d_2)
++ Cinf_ABOVE_ODD_d_2 = 2.0*C1_CAP_ABOVE_ODD_d + 2.0*C2_CAP_ABOVE_ODD_d + 2.0*C3s_ABOVE_ODD_d_2
+*
++ C21_ABOVE_ODD_d_3 = Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*h_under/s_MICRONS) 
++ h0_ABOVE_ODD_d_3 = 0.5*(0.5*s_MICRONS - h_under)
++ Epsilon_rs_ABOVE_ODD_d_3 = (h_under*Epsilon_r_under + 0.75*h0_ABOVE_ODD_d_3*Epsilon_s)/(hc + h0_ABOVE_ODD_d_3)
++ C22_ABOVE_ODD_d_3 = Epsilon_rs_ABOVE_ODD_d_3*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*h_under + 2.0*s_MICRONS))
++ C2s_ABOVE_ODD_d_3 =  X2_CAP_ABOVE_ODD_d*(C21_ABOVE_ODD_d_3 + C22_ABOVE_ODD_d_3)
++ C31_ABOVE_ODD_d_3 = 0.0
++ x0_ABOVE_ODD_d_3 = 0.5*(0.5*w_MICRONS + s_MICRONS)
+* square root of negative error:
++ h0_ABOVE_ODD_d_4 = sqrt(sqrt((x0_ABOVE_ODD_d_3*x0_ABOVE_ODD_d_3 - h_under*h_under)*(x0_ABOVE_ODD_d_3*x0_ABOVE_ODD_d_3 - h_under*h_under)))
++ Epsilon_rs_ABOVE_ODD_d_4 = (h_under*Epsilon_r_under + h0_ABOVE_ODD_d_4*Epsilon_s)/(h_under + h0_ABOVE_ODD_d_4)
++ C32_ABOVE_ODD_d_3 = Epsilon_rs_ABOVE_ODD_d_4*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
++ C3s_ABOVE_ODD_d_3 = X3_CAP_ABOVE_ODD_d*(C31_ABOVE_ODD_d_3 + C32_ABOVE_ODD_d_3)
++ Cinf_ABOVE_ODD_d_3 = 2.0*C1_CAP_ABOVE_ODD_d + 2.0*C2s_ABOVE_ODD_d_3 + 2.0*C3s_ABOVE_ODD_d_3
+*
++ Cinf_TMP_ABOVE_ODD_d = Cinf_ABOVE_ODD_d_1*(h_under > (w_MICRONS + s_MICRONS)/2) + Cinf_ABOVE_ODD_d_2*(h_under > s_MICRONS/2 && h_under <= (w_MICRONS + s_MICRONS)/2) + Cinf_ABOVE_ODD_d_3*(h_under <= s_MICRONS/2)
++ Csm_d_ABOVE_ODD = l*Cinf_TMP_ABOVE_ODD_d 
+*
++ Csm_ABOVE_ODD = 0.5*(Csm_s_ABOVE_ODD + Csm_d_ABOVE_ODD)
+*
++ C_ABOVE_ODD_1 = 0.5*Ccm_ABOVE_ODD
++ Cm_ABOVE_ODD = Csm_ABOVE_ODD - C_ABOVE_ODD_1
++ C_ABOVE_ODD_2 = (1.0 + 0.025*d_MICRONS/w_MICRONS)*C_ABOVE_ODD_1    
+*
++ C1odd_ABOVE = C_ABOVE_ODD_2 + 2.0*Cm_ABOVE_ODD
+*  
+* Then, for h_over and th2 ...
+* For Even Mode ...
++ Y1_CAP_ABOVE = 1.1396
++ Y2_CAP_ABOVE = 0.6792
++ Y3_CAP_ABOVE = 0.5662
++ Y4_CAP_ABOVE = 0.7619
++ Y5_CAP_ABOVE = 1.5853
+*
+* For Odd Mode ...
++ Z1_CAP_ABOVE = 1.0651
++ Z2_CAP_ABOVE = 0.6742
++ Z3_CAP_ABOVE = 1.2930
++ Z4_CAP_ABOVE = 1.0354
++ Z5_CAP_ABOVE = 1.1880
++ Z6_CAP_ABOVE = 0.9330
++ Z7_CAP_ABOVE = 1.4902
+*
++ alfa_s_CAP_ABOVE = 2*atan(0.5*s_MICRONS/h_over)
++ beta_s_CAP_ABOVE = pi/2 - alfa_s_CAP_ABOVE
+*
++ alfa_d_CAP_ABOVE = 2*atan(0.5*d_MICRONS/h_over)
++ beta_d_CAP_ABOVE = pi/2 - alfa_d_CAP_ABOVE
+*
+* Even Mode ...    
++ Cpl_right_CAP_ABOVE_1 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(1 + th2_CAP_ABOVE/h_over) )
++ Cpl_right_CAP_ABOVE_2 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )   
++ Cpl_right_CAP_ABOVE_3 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*((1-cos(alfa_d_CAP_ABOVE))/(alfa_d_CAP_ABOVE-sin(alfa_d_CAP_ABOVE)))*log(alfa_d_CAP_ABOVE/sin(alfa_d_CAP_ABOVE)) )
++ Cpl_right_CAP_ABOVE1 = Cpl_right_CAP_ABOVE_1*(d_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Cpl_right_CAP_ABOVE_2*(d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Cpl_right_CAP_ABOVE_3*(d_MICRONS < 2*(h_over))
+*
++ Cpl_left_CAP_ABOVE_1 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(1 + th2_CAP_ABOVE/h_over) )
++ Cpl_left_CAP_ABOVE_2 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )   
++ Cpl_left_CAP_ABOVE_3 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*((1-cos(alfa_s_CAP_ABOVE))/(alfa_s_CAP_ABOVE-sin(alfa_s_CAP_ABOVE)))*log(alfa_s_CAP_ABOVE/sin(alfa_s_CAP_ABOVE)) )
++ Cpl_left_CAP_ABOVE1 = Cpl_left_CAP_ABOVE_1*(s_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Cpl_left_CAP_ABOVE_2*(s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Cpl_left_CAP_ABOVE_3*(s_MICRONS < 2*(h_over))
+*
++ Cs_EVEN_CAP_ABOVE_1 = 0.0
++ Cs_EVEN_CAP_ABOVE_2 = E0*(Y4_CAP_ABOVE*(th2_CAP_ABOVE+h_over-s_MICRONS/2)/s_MICRONS)
++ Cs_EVEN_CAP_ABOVE_3 = E0*(Y4_CAP_ABOVE*(th2_CAP_ABOVE/s_MICRONS) + 0.5*Y5_CAP_ABOVE*((1-cos(beta_s_CAP_ABOVE))/(beta_s_CAP_ABOVE-sin(beta_s_CAP_ABOVE)))*log(beta_s_CAP_ABOVE/sin(beta_s_CAP_ABOVE)))
++ Cs_EVEN_CAP_ABOVE1 = Cs_EVEN_CAP_ABOVE_1*(s_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Cs_EVEN_CAP_ABOVE_2*(s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Cs_EVEN_CAP_ABOVE_3*(s_MICRONS < 2*(h_over))
+*
++ Cpl_TMP_CAP_ABOVE_TEMP = Cpl_right_CAP_ABOVE1 + Cpl_left_CAP_ABOVE1
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_CAP_ABOVE_1 = (1 - denfill) + denfill*h_over/(h_over - h_fill)
++ Cpl_right_CAP_ABOVE = Cpl_right_CAP_ABOVE1*(patternfill == 0) + Cpl_right_CAP_ABOVE1*coefill_CAP_ABOVE_1*(patternfill == 1)
++ Cpl_left_CAP_ABOVE = Cpl_left_CAP_ABOVE1*(patternfill == 0) + Cpl_left_CAP_ABOVE1*coefill_CAP_ABOVE_1*(patternfill == 1)
+*
++ delta_ABOVE_1 = 1.0e-10
++ num_side_fill_CAP_ABOVE_1 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_CAP_ABOVE_1 = int(num_side_fill_CAP_ABOVE_1 + delta_ABOVE_1)
++ coefill_side_CAP_ABOVE_1 = s_MICRONS/(s_MICRONS - num_fill_CAP_ABOVE_1*wfill*denfillc)
++ Cs_EVEN_CAP_ABOVE = Cs_EVEN_CAP_ABOVE1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_CAP_ABOVE_1 < 1))) + Cs_EVEN_CAP_ABOVE1*coefill_side_CAP_ABOVE_1*(patternfill == 1 && (wfill > 0 && num_fill_CAP_ABOVE_1 >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Ceven_TMP_CAP_ABOVE = (Cpl_right_CAP_ABOVE + Cpl_left_CAP_ABOVE)*Epsilon_r_over*l + Cs_EVEN_CAP_ABOVE*Epsilon_r_side*l
+*
+* Odd Mode ...
++ Co_right_CAP_ABOVE_1 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Z3_CAP_ABOVE*(2/pi)*log(1 + th2_CAP_ABOVE/h_over) )
++ Co_right_CAP_ABOVE_2 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Z3_CAP_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Co_right_CAP_ABOVE_3 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*((1-cos(alfa_d_CAP_ABOVE))/(alfa_d_CAP_ABOVE-sin(alfa_d_CAP_ABOVE)))*log(alfa_d_CAP_ABOVE/sin(alfa_d_CAP_ABOVE)) )
++ Co_right_CAP_ABOVE1 = Co_right_CAP_ABOVE_1*(d_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Co_right_CAP_ABOVE_2*(d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Co_right_CAP_ABOVE_3*(d_MICRONS < 2*(h_over))
+*
++ Co_left_CAP_ABOVE_1 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Z3_CAP_ABOVE*(2/pi)*log(1 + th2_CAP_ABOVE/h_over) )
++ Co_left_CAP_ABOVE_2 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Z3_CAP_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Co_left_CAP_ABOVE_3 = E0*( Z1_CAP_ABOVE*w_MICRONS/(2*h_over) + Z2_CAP_ABOVE*((1-cos(alfa_s_CAP_ABOVE))/(alfa_s_CAP_ABOVE-sin(alfa_s_CAP_ABOVE)))*log(alfa_s_CAP_ABOVE/sin(alfa_s_CAP_ABOVE)) )
++ Co_left_CAP_ABOVE1 = Co_left_CAP_ABOVE_1*(s_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Co_left_CAP_ABOVE_2*(s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Co_left_CAP_ABOVE_3*(s_MICRONS < 2*(h_over))
+*
++ Cs_ODD_CAP_ABOVE_1 = 0.0
++ Cs_ODD_CAP_ABOVE_2 = E0*(Z4_CAP_ABOVE*(th2_CAP_ABOVE+h_over-s_MICRONS/2)/s_MICRONS)
++ Cs_ODD_CAP_ABOVE_3 = E0*(Z4_CAP_ABOVE*(th2_CAP_ABOVE/s_MICRONS) + 0.5*Z5_CAP_ABOVE*((1-cos(beta_s_CAP_ABOVE))/(beta_s_CAP_ABOVE-sin(beta_s_CAP_ABOVE)))*log(beta_s_CAP_ABOVE/sin(beta_s_CAP_ABOVE)) )
++ Cs_ODD_CAP_ABOVE1 = Cs_ODD_CAP_ABOVE_1*(s_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Cs_ODD_CAP_ABOVE_2*(s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Cs_ODD_CAP_ABOVE_3*(s_MICRONS < 2*(h_over))
+*
++ Cc_CAP_ABOVE_1 = 0.0
++ Cc_CAP_ABOVE_2 = E0*( Z6_CAP_ABOVE*(th2_CAP_ABOVE+h_over-d_MICRONS/2)/d_MICRONS )				
++ Cc_CAP_ABOVE_3 = E0*( Z6_CAP_ABOVE*(th2_CAP_ABOVE/d_MICRONS) + Z7_CAP_ABOVE*0.5*((1-cos(beta_d_CAP_ABOVE))/(beta_d_CAP_ABOVE-sin(beta_d_CAP_ABOVE)))*log(beta_d_CAP_ABOVE/sin(beta_d_CAP_ABOVE)) )
++ Cc_CAP_ABOVE1 = Cc_CAP_ABOVE_1*(d_MICRONS >= 2*(h_over + th2_CAP_ABOVE)) + Cc_CAP_ABOVE_2*(d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over + th2_CAP_ABOVE)) + Cc_CAP_ABOVE_3*(d_MICRONS < 2*(h_over))
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_CAP_ABOVE_2 = (1 - denfill) + denfill*h_over/(h_over - h_fill)
++ Co_right_CAP_ABOVE = Co_right_CAP_ABOVE1*(patternfill == 0) + Co_right_CAP_ABOVE1*coefill_CAP_ABOVE_2*(patternfill == 1)
++ Co_left_CAP_ABOVE = Co_left_CAP_ABOVE1*(patternfill == 0) + Co_left_CAP_ABOVE1*coefill_CAP_ABOVE_2*(patternfill == 1)
+*
++ delta_CAP_ABOVE_2 = 1.0e-10
++ num_side_fill_CAP_ABOVE_2A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_CAP_ABOVE_2A = int(num_side_fill_CAP_ABOVE_2A + delta_CAP_ABOVE_2)
++ coefill_side_CAP_ABOVE_2A = s_MICRONS/(s_MICRONS - num_fill_CAP_ABOVE_2A*wfill*denfillc)
++ Cs_ODD_CAP_ABOVE = Cs_ODD_CAP_ABOVE1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_CAP_ABOVE_2A < 1))) + Cs_ODD_CAP_ABOVE1*coefill_side_CAP_ABOVE_2A*(patternfill == 1 && (wfill > 0 && num_fill_CAP_ABOVE_2A >= 1))
+*
++ num_side_fill_CAP_ABOVE_2B =  (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_CAP_ABOVE_2B = int(num_side_fill_CAP_ABOVE_2B + delta_CAP_ABOVE_2)
++ coefill_side_CAP_ABOVE_2B = d_MICRONS/(d_MICRONS - num_fill_CAP_ABOVE_2B*wfill*denfillc)
++ Cc_CAP_ABOVE = Cc_CAP_ABOVE1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_CAP_ABOVE_2B < 1))) + Cc_CAP_ABOVE1*coefill_side_CAP_ABOVE_2B*(patternfill == 1 && (wfill > 0 && num_fill_CAP_ABOVE_2B >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C2even_ABOVE = Ceven_TMP_CAP_ABOVE
++ C2odd_ABOVE = (Co_right_CAP_ABOVE + Co_left_CAP_ABOVE)*Epsilon_r_over*l + (Cs_ODD_CAP_ABOVE + 2.0*Cc_CAP_ABOVE)*Epsilon_r_side*l
+*
++ Ceven_CAP_ABOVE = C1even_ABOVE + C2even_ABOVE
++ Codd_CAP_ABOVE = C1odd_ABOVE + C2odd_ABOVE
+*
+* Next, BELOW CROSSING LINES ...
+*
+* Next, BOTH CROSSING LINES ...
+*
+* End High-Frequency Limit Capacitance Calculation for Coupled-Wire Coplanar Waveguide with Substrate ...
+*
+* Now, determine static capacitance for coupled CPW with no crossing lines ("plane" = 0 [NONE]) ...
++ Epsilon_r_ratio_NONE = 0.5*(Epsilon_r + Epsilon_r_over)/Epsilon_r_side
+* Even ...
++ Y1_NONE  = 0.9767
++ Y2_NONE  = 0.7664
++ Y3_NONE  = 0.8625
++ Y4_NONE  = 1.7705*Epsilon_r_ratio_NONE
++ Y5_NONE  = 1.0692
++ Y6_NONE  = 1.2007
++ Y7_NONE  = 1.4039
+* Odd ...
++ Z1_NONE  = 1.0311
++ Z2_NONE  = 0.6071
++ Z3_NONE  = 0.6497
++ Z4_NONE  = 1.1380*Epsilon_r_ratio_NONE
++ Z5_NONE  = 1.1057
++ Z6_NONE  = 0.9760
++ Z7_NONE  = 0.8611
++ Z8_NONE  = 1.2522*Epsilon_r_ratio_NONE
++ Z9_NONE  = 0.6814
++ Z10_NONE = 1.3690
++ Z11_NONE = 0.9658
+*
++ alfa_s_NONE = 2*atan(0.5*s_MICRONS/hc)
++ beta_s_NONE = pi/2 - alfa_s_NONE
+*
++ alfa_d_NONE = 2*atan(0.5*d_MICRONS/hc)
++ beta_d_NONE = pi/2 - alfa_d_NONE
+*
+* Even Mode ...
+*
++ Cpl_right_1_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(2/(pi-2))*log(0.5*pi) + Y3_NONE*(2/pi)*log(1 + th/hc))
++ Cpl_right_2_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(2/(pi-2))*log(0.5*pi) + Y3_NONE*(2/pi)*log(0.5*d_MICRONS/hc))
++ Cpl_right_3_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(1-cos(alfa_d_NONE))/(alfa_d_NONE-sin(alfa_d_NONE))*log(alfa_d_NONE/sin(alfa_d_NONE)))
++ Cpl_right_NONE   = (d_MICRONS >= 2*(hc+th))*Cpl_right_1_EVEN_NONE + (d_MICRONS >= 2*(hc) && d_MICRONS < 2*(hc+th))*Cpl_right_2_EVEN_NONE + (d_MICRONS < 2*(hc))*Cpl_right_3_EVEN_NONE
+*
++ Cpl_left_1_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(2/(pi-2))*log(0.5*pi) + Y3_NONE*(2/pi)*log(1 + th/hc))
++ Cpl_left_2_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(2/(pi-2))*log(0.5*pi) + Y3_NONE*(2/pi)*log(0.5*s_MICRONS/hc))
++ Cpl_left_3_EVEN_NONE = E0*(Y1_NONE*0.5*w_MICRONS/hc + Y2_NONE*(1-cos(alfa_s_NONE))/(alfa_s_NONE-sin(alfa_s_NONE))*log(alfa_s_NONE/sin(alfa_s_NONE)))
++ Cpl_left_NONE   = (s_MICRONS >= 2*(hc+th))*Cpl_left_1_EVEN_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cpl_left_2_EVEN_NONE + (s_MICRONS < 2*(hc))*Cpl_left_3_EVEN_NONE
+*         
++ Cs_1_EVEN_NONE = E0*(Y4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_NONE*(1/(pi-2))*log(0.5*pi))
++ Cs_2_EVEN_NONE = E0*(Y4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_NONE*(1/(pi-2))*log(0.5*pi) + Y6_NONE*(th + hc - 0.5*s_MICRONS)/s_MICRONS)
++ Cs_3_EVEN_NONE = E0*(Y4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_NONE*(1/(pi-2))*log(0.5*pi) + Y6_NONE*th/s_MICRONS + Y7_NONE*0.5*(1-cos(beta_s_NONE))/(beta_s_NONE-sin(beta_s_NONE))*log(beta_s_NONE/sin(beta_s_NONE)))
++ Cs_EVEN_NONE   = (s_MICRONS >= 2*(hc+th))*Cs_1_EVEN_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cs_2_EVEN_NONE + (s_MICRONS < 2*(hc))*Cs_3_EVEN_NONE
+*
++ Ce_NONE  = (Cpl_right_NONE + Cpl_left_NONE)*(Epsilon_r*l) + Cs_EVEN_NONE*(Epsilon_r_side*l)
++ Cpl_TMP_NONE_1 =  (Cpl_right_NONE + Cpl_left_NONE)* Epsilon_r*l 
++ Cs_TMP_NONE_1  = Cs_EVEN_NONE*Epsilon_r_side*l   
+* 
+* Odd Mode ...
+*
++ Co_right_1_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(1 + th/hc))
++ Co_right_2_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(0.5*d_MICRONS/hc))
++ Co_right_3_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(1-cos(alfa_d_NONE))/(alfa_d_NONE-sin(alfa_d_NONE))*log(alfa_d_NONE/sin(alfa_d_NONE)))
++ Co_right_NONE = (d_MICRONS >= 2*(hc+th))*Co_right_1_NONE + (d_MICRONS >= 2*(hc) && d_MICRONS < 2*(hc+th))*Co_right_2_NONE + (d_MICRONS < 2*(hc))*Co_right_3_NONE
+*
++ Co_left_1_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(1 + th/hc))
++ Co_left_2_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(0.5*s_MICRONS/hc))
++ Co_left_3_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(1-cos(alfa_s_NONE))/(alfa_s_NONE-sin(alfa_s_NONE))*log(alfa_s_NONE/sin(alfa_s_NONE)))
++ Co_left_NONE = (s_MICRONS >= 2*(hc+th))*Co_left_1_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Co_left_2_NONE + (s_MICRONS < 2*(hc))*Co_left_3_NONE
+*
++ Cs_1_ODD_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi))
++ Cs_2_ODD_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi) + Z6_NONE*(th + hc - 0.5*s_MICRONS )/s_MICRONS)
++ Cs_3_ODD_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi) + Z6_NONE*th/s_MICRONS + Z7_NONE*0.5*(1-cos(beta_s_NONE))/(beta_s_NONE-sin(beta_s_NONE))*log(beta_s_NONE/sin(beta_s_NONE)))
++ Cs_ODD_NONE = (s_MICRONS >= 2*(hc+th))*Cs_1_ODD_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cs_2_ODD_NONE + (s_MICRONS < 2*(hc))*Cs_3_ODD_NONE
+*
++ Cc_1_NONE = E0*(Z8_NONE*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_NONE*(1/(pi-2))*log(0.5*pi))
++ Cc_2_NONE = E0*(Z8_NONE*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_NONE*(1/(pi-2))*log(0.5*pi) + Z10_NONE*(th + hc - 0.5*d_MICRONS )/d_MICRONS)
++ Cc_3_NONE = E0*(Z8_NONE*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_NONE*(1/(pi-2))*log(0.5*pi) + Z10_NONE*th/d_MICRONS + Z11_NONE*0.5*(1-cos(beta_d_NONE))/(beta_d_NONE-sin(beta_d_NONE))*log(beta_d_NONE/sin(beta_d_NONE)))
++ Cc_NONE = (d_MICRONS >= 2*(hc+th))*Cc_1_NONE + (d_MICRONS >= 2*(hc) && d_MICRONS < 2*(hc+th))*Cc_2_NONE + (d_MICRONS < 2*(hc))*Cc_3_NONE
+*
++ Co_NONE = (Co_right_NONE + Co_left_NONE)*(Epsilon_r*l) + (Cs_ODD_NONE + 2*Cc_NONE)*(Epsilon_r_side*l)
+*
++ Cc_tmp_NONE_1 = 0.5*(Co_NONE - Ce_NONE)*(0.5*(Co_NONE - Ce_NONE) >= 0) + (Cc_NONE*Epsilon_r_side*l)*(0.5*(Co_NONE - Ce_NONE) < 0)
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_NONE = (1 - denfill) + denfill*hc/(hc - h_fill)
++ Cpl_TMP_NONE =  Cpl_TMP_NONE_1*(patternfill == 0) +  Cpl_TMP_NONE_1*coefill_NONE*(patternfill == 1)
+*
++ delta_NONE = 1.0e-10
++ num_side_fill_NONE = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_NONE = int(num_side_fill_NONE + delta_NONE)
++ coefill_side_NONE = s_MICRONS/(s_MICRONS - num_fill_NONE*wfill*denfillc)
++ Cs_TMP_NONE = Cs_TMP_NONE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_NONE < 1))) + Cs_TMP_NONE_1*coefill_side_NONE*(patternfill == 1 && (wfill > 0 && num_fill_NONE >= 1))
+*
++ num_side_fill_NONE1 = (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_NONE1 = int(num_side_fill_NONE1 + delta_NONE)
++ coefill_side_NONE1 = d_MICRONS/(d_MICRONS - num_fill_NONE1*wfill*denfillc)
++ Cc_tmp_NONE = Cc_tmp_NONE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_NONE < 1))) + Cc_tmp_NONE_1*coefill_side_NONE1*(patternfill == 1 && (wfill > 0 && num_fill_NONE1 >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cotot_NONE = Cpl_TMP_NONE + Cs_TMP_NONE
++ Coxo_NONE_1 = Cs_TMP_NONE
++ Cox_NONE_1 = Cpl_TMP_NONE
++ Cctot_NONE_1 = Cc_tmp_NONE 
+*
++ caf_NONE = 1.0 + (0.2*atan(hc/w_MICRONS)*2.0/pi - 0.2)*0.8925
++ Cpl_right_1_NONE_1 = E0*( w_MICRONS/(2*hc) + caf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th/hc) )
++ Cpl_right_1_NONE_2 = E0*( w_MICRONS/(2*hc) + caf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(d_MICRONS/(2*hc)) )
++ Cpl_right_1_NONE_3 = E0*( w_MICRONS/(2*hc) + caf_NONE*((1-cos(alfa_d_NONE))/(alfa_d_NONE-sin(alfa_d_NONE)))*log(alfa_d_NONE/sin(alfa_d_NONE)) )
++ Cpl_right_1_NONE = (d_MICRONS >= 2*(hc+th))*Cpl_right_1_NONE_1 + (d_MICRONS >= 2*(hc) && d_MICRONS < 2*(hc+th))*Cpl_right_1_NONE_2 + (d_MICRONS < 2*(hc))*Cpl_right_1_NONE_3
+*
++ Cpl_left_1_NONE_1 = E0*( w_MICRONS/(2*hc) + caf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th/hc) )
++ Cpl_left_1_NONE_2 = E0*( w_MICRONS/(2*hc) + caf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(d_MICRONS/(2*hc)) )
++ Cpl_left_1_NONE_3 = E0*( w_MICRONS/(2*hc) + caf_NONE*((1-cos(alfa_s_NONE))/(alfa_s_NONE-sin(alfa_s_NONE)))*log(alfa_s_NONE/sin(alfa_s_NONE)) )
++ Cpl_left_1_NONE = (s_MICRONS >= 2*(hc+th))*Cpl_left_1_NONE_1 + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cpl_left_1_NONE_2 + (s_MICRONS < 2*(hc))*Cpl_left_1_NONE_3
+*
++ Cpl_1_NONE1 = Cpl_right_1_NONE + Cpl_left_1_NONE 
++ Cpl_1_NONE_TEMP_1 = Cpl_1_NONE1*Epsilon_r*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_NONE1 = (1 - denfill) + denfill*hc/(hc - h_fill)
++ Cpl_1_NONE = Cpl_1_NONE_TEMP_1*(patternfill == 0) + Cpl_1_NONE_TEMP_1*coefill_NONE1*(patternfill == 1)
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cox_NONE_2 = Cpl_1_NONE
++ Coxo_NONE_2 = Cotot_NONE - Cox_NONE_2
+*
++ Cctot_NONE_TMP = Cctot_NONE_1
++ Cox_NONE_TMP = Cox_NONE_2
++ Coxo_NONE_TMP = Coxo_NONE_1*(Coxo_NONE_2 < 0) + Coxo_NONE_2*(Coxo_NONE_2 >= 0)
++ Csi_p_NONE = Cox_NONE_2*(Ceven_CAP_NONE - Coxo_NONE_TMP)/(Cox_NONE_2 + Coxo_NONE_TMP - Ceven_CAP_NONE)
++ tsi_NONE = Epsilon_s*E0*rsub
++ Csi_NONE_TMP_1 = 10*(Csi_p_NONE < 0.01*tsi_NONE*Rtot*(1 + Csi_p_NONE/Cox_NONE_2)*(1 + Csi_p_NONE/Cox_NONE_2)/10000) + Csi_p_NONE*(Csi_p_NONE >= 0.01*tsi_NONE*Rtot*(1 + Csi_p_NONE/Cox_NONE_2)*(1 + Csi_p_NONE/Cox_NONE_2)/10000) 
++ Csi_NONE_TMP = 1e-20*(Csi_NONE_TMP_1 < 0) + Csi_NONE_TMP_1*(Csi_NONE_TMP_1 >= 0)
++ Rsi_NONE_TMP = Epsilon_s*E0*(rsub)/(Csi_NONE_TMP)
+*-------------------------------------------------------------------------------------------------------//
++ Cox_NONE = Cox_NONE_TMP            // Calculated Cctot, Cox, Coxo, Csi, and Rsi for "plane" = NONE.   //
++ Coxo_NONE = Coxo_NONE_TMP                                                                             //
++ Cctot_NONE = Cctot_NONE_TMP                                                                           //
++ Csi_NONE = Csi_NONE_TMP                                                                               //
++ Rsi_NONE = Rsi_NONE_TMP                                                                               // 		    	                                 
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for coupled CPW with crossing lines above ("plane" = 1 [ABOVE]) ...
++ cf_ABOVE = 0.8
++ Y1_ABOVE = 1.0347
++ Y2_ABOVE = 0.7739*cf_ABOVE
++ Y3_ABOVE = 1.0904
++ Y4_ABOVE = 1.3038
++ Y5_ABOVE = 1.9768*cf_ABOVE
+*
++ Z1_ABOVE = 1.0181
++ Z2_ABOVE = 0.7305*cf_ABOVE
++ Z3_ABOVE = 1.5790
++ Z4_ABOVE = 1.1692
++ Z5_ABOVE = 1.4436*cf_ABOVE
++ Z6_ABOVE = 1.2759
++ Z7_ABOVE = 1.4332*cf_ABOVE
+*
++ th1_ABOVE = th*h_over/(h_under+h_over)
++ th2_ABOVE = th*h_under/(h_under+h_over)
+*
++ alfa_s_ABOVE_1 = 2*atan(0.5*s_MICRONS/h_under)
++ beta_s_ABOVE_1 = pi/2 - alfa_s_ABOVE_1
++ alfa_d_ABOVE_1 = 2*atan(0.5*d_MICRONS/h_under)
++ beta_d_ABOVE_1 = pi/2 - alfa_d_ABOVE_1
+*
++ alfa_s_ABOVE_2 = 2*atan(0.5*s_MICRONS/h_over)
++ beta_s_ABOVE_2 = pi/2 - alfa_s_ABOVE_2
++ alfa_d_ABOVE_2 = 2*atan(0.5*d_MICRONS/h_over)
++ beta_d_ABOVE_2 = pi/2 - alfa_d_ABOVE_2
+*
+* First, determine static capacitance for h_under and th1_ABOVE ... 
+* Even Mode ...
+*
++ Cpl_right_1_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th1_ABOVE/h_under) )
++ Cpl_right_2_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_right_3_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*((1-cos(alfa_d_ABOVE_1))/(alfa_d_ABOVE_1-sin(alfa_d_ABOVE_1)))*log(alfa_d_ABOVE_1/sin(alfa_d_ABOVE_1)) )
++ Cpl_right_ABOVE_1_1 = (d_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_right_1_ABOVE_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_right_2_ABOVE_1 + (d_MICRONS < 2*(h_under))*Cpl_right_3_ABOVE_1
+*
++ Cpl_left_1_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th1_ABOVE/h_under) )
++ Cpl_left_2_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_left_3_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*((1-cos(alfa_s_ABOVE_1))/(alfa_s_ABOVE_1-sin(alfa_s_ABOVE_1)))*log(alfa_s_ABOVE_1/sin(alfa_s_ABOVE_1)) )
++ Cpl_left_ABOVE_1_1 = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_left_1_ABOVE_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_left_2_ABOVE_1 + (s_MICRONS < 2*(h_under))*Cpl_left_3_ABOVE_1
+*
++ Cs_1_ABOVE_1_EVEN = 0.0
++ Cs_2_ABOVE_1_EVEN = E0*(Y4_ABOVE*(th1_ABOVE+h_under-s_MICRONS/2)/s_MICRONS)
++ Cs_3_ABOVE_1_EVEN = E0*(Y4_ABOVE*(th1_ABOVE/s_MICRONS) + 0.5*Y5_ABOVE*((1-cos(beta_s_ABOVE_1))/(beta_s_ABOVE_1-sin(beta_s_ABOVE_1)))*log(beta_s_ABOVE_1/sin(beta_s_ABOVE_1)))
++ Cs_ABOVE_1_EVEN_1 = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cs_1_ABOVE_1_EVEN + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cs_2_ABOVE_1_EVEN + (s_MICRONS < 2*(h_under))*Cs_3_ABOVE_1_EVEN
+*
++ Cpl_ABOVE_1 = Cpl_right_ABOVE_1_1 + Cpl_left_ABOVE_1_1
+*
+* Capacitance update due to Pattern Fill [1]
+*
++ coefill_ABOVE_1 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_right_ABOVE_1 = Cpl_right_ABOVE_1_1*(patternfill == 0) + Cpl_right_ABOVE_1_1*coefill_ABOVE_1*(patternfill == 1)
++ Cpl_left_ABOVE_1 = Cpl_left_ABOVE_1_1*(patternfill == 0) + Cpl_left_ABOVE_1_1*coefill_ABOVE_1*(patternfill == 1)
+*
++ delta_SIDE_1 = 1.0e-10
++ num_side_fill_ABOVE_1 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_1 = int(num_side_fill_ABOVE_1 + delta_SIDE_1)
++ coefill_side_ABOVE_1 = s_MICRONS/(s_MICRONS - num_fill_ABOVE_1*wfill*denfillc)
++ Cs_ABOVE_1_EVEN = Cs_ABOVE_1_EVEN_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_1 < 1))) + Cs_ABOVE_1_EVEN_1*coefill_side_ABOVE_1*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_1 >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cpl_tmp_ABOVE_1 = (Cpl_right_ABOVE_1 + Cpl_left_ABOVE_1)*(Epsilon_r_under*l)
++ Cs_tmp_ABOVE_1 = Cs_ABOVE_1_EVEN*Epsilon_r_side*l    
++ Ceven_tmp_ABOVE_1 = Cpl_tmp_ABOVE_1 + Cs_tmp_ABOVE_1
+*
+* Odd Mode ...
+*
++ Co_right_1_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(1 + th1_ABOVE/h_under) )       
++ Co_right_2_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Co_right_3_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*((1-cos(alfa_d_ABOVE_1))/(alfa_d_ABOVE_1-sin(alfa_d_ABOVE_1)))*log(alfa_d_ABOVE_1/sin(alfa_d_ABOVE_1)) )
++ Co_right_ABOVE_1_1 = (d_MICRONS >= 2*(h_under+th1_ABOVE))*Co_right_1_ABOVE_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_ABOVE))*Co_right_2_ABOVE_1 + (d_MICRONS < 2*(h_under))*Co_right_3_ABOVE_1
+*
++ Co_left_1_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(1 + th1_ABOVE/h_under) )
++ Co_left_2_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(s_MICRONS/(2*h_under)) )
++ Co_left_3_ABOVE_1 = E0*( Z1_ABOVE*w_MICRONS/(2*h_under) + Z2_ABOVE*((1-cos(alfa_s_ABOVE_1))/(alfa_s_ABOVE_1-sin(alfa_s_ABOVE_1)))*log(alfa_s_ABOVE_1/sin(alfa_s_ABOVE_1)) )
++ Co_left_ABOVE_1_1 = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Co_left_1_ABOVE_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Co_left_2_ABOVE_1 + (s_MICRONS < 2*(h_under))*Co_left_3_ABOVE_1
+*
++ Cs_1_ABOVE_1_ODD = 0.0   
++ Cs_2_ABOVE_1_ODD = E0*(Z4_ABOVE*(th1_ABOVE+h_under-s_MICRONS/2)/s_MICRONS)  
++ Cs_3_ABOVE_1_ODD = E0*(Z4_ABOVE*(th1_ABOVE/s_MICRONS) + 0.5*Z5_ABOVE*((1-cos(beta_s_ABOVE_1))/(beta_s_ABOVE_1-sin(beta_s_ABOVE_1)))*log(beta_s_ABOVE_1/sin(beta_s_ABOVE_1)) )  
++ Cs_ABOVE_1_ODD_1 = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cs_1_ABOVE_1_ODD + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cs_2_ABOVE_1_ODD + (s_MICRONS < 2*(h_under))*Cs_3_ABOVE_1_ODD
+*
++ Cc_1_ABOVE_1 = (1.0e-6)*(Cpl_right_ABOVE_1 + Cpl_left_ABOVE_1)
++ Cc_2_ABOVE_1 = E0*(Z6_ABOVE*(th1_ABOVE+h_under-d_MICRONS/2)/d_MICRONS)
++ Cc_3_ABOVE_1 = E0*(Z6_ABOVE*(th1_ABOVE/d_MICRONS) + Z7_ABOVE*0.5*((1-cos(beta_d_ABOVE_1))/(beta_d_ABOVE_1-sin(beta_d_ABOVE_1)))*log(beta_d_ABOVE_1/sin(beta_d_ABOVE_1)))
++ Cc_ABOVE_1_1 = (d_MICRONS >= 2*(h_under+th1_ABOVE))*Cc_1_ABOVE_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_ABOVE))*Cc_2_ABOVE_1 + (d_MICRONS < 2*(h_under))*Cc_3_ABOVE_1
+*   
+* Capacitance update due to Pattern Fill [2]
+*
++ coefill_ABOVE_2 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Co_right_ABOVE_1 = Co_right_ABOVE_1_1*(patternfill == 0) + Co_right_ABOVE_1_1*coefill_ABOVE_2*(patternfill == 1)
++ Co_left_ABOVE_1 = Co_left_ABOVE_1_1*(patternfill == 0) + Co_left_ABOVE_1_1*coefill_ABOVE_2*(patternfill == 1)
+*
++ delta_ABOVE_2 = 1.0e-10
++ num_side_fill_ABOVE_2A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_2A = int(num_side_fill_ABOVE_2A + delta_ABOVE_2)
++ coefill_side_ABOVE_2A = s_MICRONS/(s_MICRONS - num_fill_ABOVE_2A*wfill*denfillc)
++ Cs_ABOVE_1_ODD = Cs_ABOVE_1_ODD_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_2A < 1))) + Cs_ABOVE_1_ODD_1*coefill_side_ABOVE_2A*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_2A >= 1))
+*
++ num_side_fill_ABOVE_2B =  (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_2B = int(num_side_fill_ABOVE_2B + delta_ABOVE_2)
++ coefill_side_ABOVE_2B = d_MICRONS/(d_MICRONS - num_fill_ABOVE_2B*wfill*denfillc)
++ Cc_ABOVE_1 = Cc_ABOVE_1_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_2B < 1))) + Cc_ABOVE_1_1*coefill_side_ABOVE_2B*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_2B >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Codd_tmp_ABOVE_1 = (Co_right_ABOVE_1 + Co_left_ABOVE_1)*Epsilon_r_under*l + (Cs_ABOVE_1_ODD + 2*Cc_ABOVE_1)*Epsilon_r_side*l
++ Cc_tmp_ABOVE_1 = Cc_ABOVE_1*Epsilon_r_side*l   
+*
++ C1pl_ABOVE_1 = Cpl_tmp_ABOVE_1
++ C1s_ABOVE_1 = Cs_tmp_ABOVE_1   
++ C1even_ABOVE_1 = Ceven_tmp_ABOVE_1
++ C1odd_ABOVE_1 = Codd_tmp_ABOVE_1
++ C1c_ABOVE_1 = Cc_tmp_ABOVE_1
+* ------------------------------------------
++ caf_ABOVE = 1.0 + (0.2*atan(h_under/w_MICRONS)*2.0/pi - 0.2)*1.0
++ Cpl_right_caf_ABOVE_1 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th1_ABOVE/h_under) )
++ Cpl_right_caf_ABOVE_2 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*(2/(pi-2))*log(pi/2) + (2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_right_caf_ABOVE_3 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*((1-cos(alfa_d_ABOVE_1))/(alfa_d_ABOVE_1-sin(alfa_d_ABOVE_1)))*log(alfa_d_ABOVE_1/sin(alfa_d_ABOVE_1)) )
++ Cpl_right_caf_ABOVE = (d_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_right_caf_ABOVE_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_right_caf_ABOVE_2 + (d_MICRONS < 2*(h_under))*Cpl_right_caf_ABOVE_3
+*
++ Cpl_left_caf_ABOVE_1 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th1_ABOVE/h_under) )
++ Cpl_left_caf_ABOVE_2 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*(2/(pi-2))*log(pi/2) + (2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_left_caf_ABOVE_3 = E0*( w_MICRONS/(2*h_under) + caf_ABOVE*((1-cos(alfa_s_ABOVE_1))/(alfa_s_ABOVE_1-sin(alfa_s_ABOVE_1)))*log(alfa_s_ABOVE_1/sin(alfa_s_ABOVE_1)) )
++ Cpl_left_caf_ABOVE = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_left_caf_ABOVE_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_left_caf_ABOVE_2 + (s_MICRONS < 2*(h_under))*Cpl_left_caf_ABOVE_3
+*
++ Cpl_caf_ABOVE = Cpl_right_caf_ABOVE + Cpl_left_caf_ABOVE
++ Cpl_caf_ABOVE_TEMP_1 = Cpl_caf_ABOVE*Epsilon_r_under*l
+*
+* Capacitance update due to Pattern Fill [3]
+*
++ coefill_ABOVE_3 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_caf_ABOVE_TEMP = Cpl_caf_ABOVE_TEMP_1*(patternfill == 0) + Cpl_caf_ABOVE_TEMP_1*coefill_ABOVE_3*(patternfill == 1)
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cox_ABOVE_TMP = Cpl_caf_ABOVE_TEMP
+*
+* Then, determine static capacitance for h_over and th2_ABOVE ... 
+* Even Mode ...
+*
++ Cpl_right_1_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th2_ABOVE/h_over) )
++ Cpl_right_2_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Cpl_right_3_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*((1-cos(alfa_d_ABOVE_2))/(alfa_d_ABOVE_2-sin(alfa_d_ABOVE_2)))*log(alfa_d_ABOVE_2/sin(alfa_d_ABOVE_2)) )
++ Cpl_right_ABOVE_2_1 = (d_MICRONS >= 2*(h_over+th2_ABOVE))*Cpl_right_1_ABOVE_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_ABOVE))*Cpl_right_2_ABOVE_2 + (d_MICRONS < 2*(h_over))*Cpl_right_3_ABOVE_2
+*
++ Cpl_left_1_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th2_ABOVE/h_over) )
++ Cpl_left_2_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Cpl_left_3_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*((1-cos(alfa_s_ABOVE_2))/(alfa_s_ABOVE_2-sin(alfa_s_ABOVE_2)))*log(alfa_s_ABOVE_2/sin(alfa_s_ABOVE_2)) )
++ Cpl_left_ABOVE_2_1 = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Cpl_left_1_ABOVE_2 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Cpl_left_2_ABOVE_2 + (s_MICRONS < 2*(h_over))*Cpl_left_3_ABOVE_2
+*
++ Cs_1_ABOVE_2_EVEN = 0.0
++ Cs_2_ABOVE_2_EVEN = E0*(Y4_ABOVE*(th2_ABOVE+h_over-s_MICRONS/2)/s_MICRONS)
++ Cs_3_ABOVE_2_EVEN = E0*(Y4_ABOVE*(th2_ABOVE/s_MICRONS) + 0.5*Y5_ABOVE*((1-cos(beta_s_ABOVE_2))/(beta_s_ABOVE_2-sin(beta_s_ABOVE_2)))*log(beta_s_ABOVE_2/sin(beta_s_ABOVE_2)))
++ Cs_ABOVE_2_EVEN_1 = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Cs_1_ABOVE_2_EVEN + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Cs_2_ABOVE_2_EVEN + (s_MICRONS < 2*(h_over))*Cs_3_ABOVE_2_EVEN
+*
+* Capacitance update due to Pattern Fill [4]
+*
++ coefill_ABOVE_4 = (1 - denfill) + denfill*h_over/(h_over - h_fill_over)
++ Cpl_right_ABOVE_2 = Cpl_right_ABOVE_2_1*(patternfill == 0) + Cpl_right_ABOVE_2_1*coefill_ABOVE_4*(patternfill == 1)
++ Cpl_left_ABOVE_2 = Cpl_left_ABOVE_2_1*(patternfill == 0) + Cpl_left_ABOVE_2_1*coefill_ABOVE_4*(patternfill == 1)
+*
++ delta_ABOVE_4 = 1.0e-10
++ num_side_fill_ABOVE_4 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_4 = int(num_side_fill_ABOVE_4 + delta_ABOVE_4)
++ coefill_side_ABOVE_4 = s_MICRONS/(s_MICRONS - num_fill_ABOVE_4*wfill*denfillc)
++ Cs_ABOVE_2_EVEN = Cs_ABOVE_2_EVEN_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_4 < 1))) + Cs_ABOVE_2_EVEN_1*coefill_side_ABOVE_4*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_4 >= 1))
+*
+* End Capacitance update due to Pattern Fill 
+*
++ Cpl_tmp_ABOVE_2 = (Cpl_right_ABOVE_2 + Cpl_left_ABOVE_2)*(Epsilon_r_over*l)
++ Cs_tmp_ABOVE_2 = Cs_ABOVE_2_EVEN*Epsilon_r_side*l    
++ Ceven_tmp_ABOVE_2 = Cpl_tmp_ABOVE_2 + Cs_tmp_ABOVE_2
+*
+* Odd Mode ...
+*
++ Co_right_1_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(1 + th2_ABOVE/h_over) )       
++ Co_right_2_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Co_right_3_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*((1-cos(alfa_d_ABOVE_2))/(alfa_d_ABOVE_2-sin(alfa_d_ABOVE_2)))*log(alfa_d_ABOVE_2/sin(alfa_d_ABOVE_2)) )
++ Co_right_ABOVE_2_1 = (d_MICRONS >= 2*(h_over+th2_ABOVE))*Co_right_1_ABOVE_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_ABOVE))*Co_right_2_ABOVE_2 + (d_MICRONS < 2*(h_over))*Co_right_3_ABOVE_2
+*
++ Co_left_1_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(1 + th2_ABOVE/h_over) )
++ Co_left_2_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*(2/(pi-2))*log(pi/2) + Z3_ABOVE*(2/pi)*log(s_MICRONS/(2*h_over)) )
++ Co_left_3_ABOVE_2 = E0*( Z1_ABOVE*w_MICRONS/(2*h_over) + Z2_ABOVE*((1-cos(alfa_s_ABOVE_2))/(alfa_s_ABOVE_2-sin(alfa_s_ABOVE_2)))*log(alfa_s_ABOVE_2/sin(alfa_s_ABOVE_2)) )
++ Co_left_ABOVE_2_1 = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Co_left_1_ABOVE_2 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Co_left_2_ABOVE_2 + (s_MICRONS < 2*(h_over))*Co_left_3_ABOVE_2
+*
++ Cs_1_ABOVE_2_ODD = 0.0   
++ Cs_2_ABOVE_2_ODD = E0*(Z4_ABOVE*(th2_ABOVE+h_over-s_MICRONS/2)/s_MICRONS)  
++ Cs_3_ABOVE_2_ODD = E0*(Z4_ABOVE*(th2_ABOVE/s_MICRONS) + 0.5*Z5_ABOVE*((1-cos(beta_s_ABOVE_2))/(beta_s_ABOVE_2-sin(beta_s_ABOVE_2)))*log(beta_s_ABOVE_2/sin(beta_s_ABOVE_2)) )  
++ Cs_ABOVE_2_ODD_1 = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Cs_1_ABOVE_2_ODD + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Cs_2_ABOVE_2_ODD + (s_MICRONS < 2*(h_over))*Cs_3_ABOVE_2_ODD
+*
++ Cc_1_ABOVE_2 = 0.0
++ Cc_2_ABOVE_2 = E0*(Z6_ABOVE*(th2_ABOVE+h_over-d_MICRONS/2)/d_MICRONS)
++ Cc_3_ABOVE_2 = E0*(Z6_ABOVE*(th2_ABOVE/d_MICRONS) + Z7_ABOVE*0.5*((1-cos(beta_d_ABOVE_2))/(beta_d_ABOVE_2-sin(beta_d_ABOVE_2)))*log(beta_d_ABOVE_2/sin(beta_d_ABOVE_2)))
++ Cc_ABOVE_2_1 = (d_MICRONS >= 2*(h_over+th2_ABOVE))*Cc_1_ABOVE_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_ABOVE))*Cc_2_ABOVE_2 + (d_MICRONS < 2*(h_over))*Cc_3_ABOVE_2
+*   
+* Capacitance update due to Pattern Fill [5]
+*
++ coefill_ABOVE_5 = (1 - denfill) + denfill*h_over/(h_over - h_fill_over)
++ Co_right_ABOVE_2 = Co_right_ABOVE_2_1*(patternfill == 0) + Co_right_ABOVE_2_1*coefill_ABOVE_5*(patternfill == 1)
++ Co_left_ABOVE_2 = Co_left_ABOVE_2_1*(patternfill == 0) + Co_left_ABOVE_2_1*coefill_ABOVE_5*(patternfill == 1)
+*
++ delta_ABOVE_5 = 1.0e-10
++ num_side_fill_ABOVE_5A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_5A = int(num_side_fill_ABOVE_5A + delta_ABOVE_5)
++ coefill_side_ABOVE_5A = s_MICRONS/(s_MICRONS - num_fill_ABOVE_5A*wfill*denfillc)
++ Cs_ABOVE_2_ODD = Cs_ABOVE_2_ODD_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_2A < 1))) + Cs_ABOVE_2_ODD_1*coefill_side_ABOVE_5A*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_5A >= 1))
+*
++ num_side_fill_ABOVE_5B =  (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_5B = int(num_side_fill_ABOVE_5B + delta_ABOVE_5)
++ coefill_side_ABOVE_5B = d_MICRONS/(d_MICRONS - num_fill_ABOVE_5B*wfill*denfillc)
++ Cc_ABOVE_2 = Cc_ABOVE_2_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_5B < 1))) + Cc_ABOVE_2_1*coefill_side_ABOVE_5B*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_5B >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Codd_tmp_ABOVE_2 = (Co_right_ABOVE_2 + Co_left_ABOVE_2)*Epsilon_r_over*l + (Cs_ABOVE_2_ODD + 2*Cc_ABOVE_2)*Epsilon_r_side*l
++ Cc_tmp_ABOVE_2 = Cc_ABOVE_2*Epsilon_r_side*l   
+*
++ C1pl_ABOVE_2 = Cpl_tmp_ABOVE_2
++ C1s_ABOVE_2 = Cs_tmp_ABOVE_2   
++ C1even_ABOVE_2 = Ceven_tmp_ABOVE_2
++ C1odd_ABOVE_2 = Codd_tmp_ABOVE_2
++ C1c_ABOVE_2 = Cc_tmp_ABOVE_2
+*
++ Cotot_ABOVE_TMP = C1even_ABOVE_1 + C1even_ABOVE_2
++ Codd_ABOVE_TMP = C1odd_ABOVE_1 + C1odd_ABOVE_2    
++ Cctot_ABOVE_TMP = 0.5*(Codd_ABOVE_TMP - Cotot_ABOVE_TMP)*(0.5*(Codd_ABOVE_TMP - Cotot_ABOVE_TMP) >= 0) + (C1c_ABOVE_1 + C1c_ABOVE_2)*(0.5*(Codd_ABOVE_TMP - Cotot_ABOVE_TMP) < 0)
++ Coxo_ABOVE_TMP_1 = Cotot_ABOVE_TMP - Cox_ABOVE_TMP
++ Coxo_ABOVE_TMP = Coxo_ABOVE_TMP_1*(Coxo_ABOVE_TMP_1 >= 0) + (C1even_ABOVE_2 + C1s_ABOVE_1)*(Coxo_ABOVE_TMP_1 < 0)
++ Csi_p_ABOVE = Cox_ABOVE_TMP*(Ceven_CAP_ABOVE - Coxo_ABOVE_TMP)/(Cox_ABOVE_TMP + Coxo_ABOVE_TMP - Ceven_CAP_ABOVE)
++ tsi_ABOVE = Epsilon_s*E0*rsub
++ Csi_ABOVE_TMP_1 = 10*(Csi_p_ABOVE < 0.01*tsi_ABOVE*Rtot*(1 + Csi_p_ABOVE/Cox_ABOVE_TMP)*(1 + Csi_p_ABOVE/Cox_ABOVE_TMP)/10000) + Csi_p_ABOVE*(Csi_p_ABOVE >= 0.01*tsi_ABOVE*Rtot*(1 + Csi_p_ABOVE/Cox_ABOVE_TMP)*(1 + Csi_p_ABOVE/Cox_ABOVE_TMP)/10000) 
++ Csi_ABOVE_TMP = 1e-20*(Csi_ABOVE_TMP_1 < 0) + Csi_ABOVE_TMP_1*(Csi_ABOVE_TMP_1 >= 0)
++ Rsi_ABOVE_TMP = Epsilon_s*E0*(rsub)/(Csi_ABOVE_TMP)
+*-------------------------------------------------------------------------------------------------------//
++ Cox_ABOVE = Cox_ABOVE_TMP           // Calculated Cctot, Cox, Coxo, Csi, and Rsi for "plane" = ABOVE. //
++ Coxo_ABOVE = Coxo_ABOVE_TMP                                                                           //
++ Cctot_ABOVE = Cctot_ABOVE_TMP                                                                         //
++ Csi_ABOVE = Csi_ABOVE_TMP                                                                             //
++ Rsi_ABOVE = Rsi_ABOVE_TMP                                                                             // 		    	                                 
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for coupled CPW with crossing lines below ("plane" = 2 [BELOW]) ...
++ Epsilon_r_ratio_BELOW = 0.5*(Epsilon_r_under + Epsilon_r_over)/Epsilon_r_side 
+* Even ...
++ Y1_BELOW  = 0.9743
++ Y2_BELOW  = 0.8357
++ Y3_BELOW  = 0.7978
++ Y4_BELOW  = 1.4869*Epsilon_r_ratio_BELOW
++ Y5_BELOW  = 1.2099
++ Y6_BELOW  = 1.0491
++ Y7_BELOW  = 1.4617
+* Odd ...
++ Z1_BELOW  = 0.9339
++ Z2_BELOW  = 0.6078
++ Z3_BELOW  = 0.6502
++ Z4_BELOW  = 1.1028*Epsilon_r_ratio_BELOW
++ Z5_BELOW  = 1.0364
++ Z6_BELOW  = 0.8744
++ Z7_BELOW  = 0.8209
++ Z8_BELOW  = 1.6012*Epsilon_r_ratio_BELOW
++ Z9_BELOW  = 0.8328
++ Z10_BELOW = 1.1468
++ Z11_BELOW = 0.9924
+*
++ alfa_s_BELOW = 2*atan(0.5*s_MICRONS/h_under)
++ beta_s_BELOW = pi/2 - alfa_s_BELOW
+*
++ alfa_d_BELOW = 2*atan(0.5*d_MICRONS/h_under)
++ beta_d_BELOW = pi/2 - alfa_d_BELOW
+*
+* Even Mode ...
+*
++ Cpl_right_1_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(2/(pi-2))*log(0.5*pi) + Y3_BELOW*(2/pi)*log(1 + th/h_under))
++ Cpl_right_2_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(2/(pi-2))*log(0.5*pi) + Y3_BELOW*(2/pi)*log(0.5*d_MICRONS/h_under))
++ Cpl_right_3_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(1-cos(alfa_d_BELOW))/(alfa_d_BELOW-sin(alfa_d_BELOW))*log(alfa_d_BELOW/sin(alfa_d_BELOW)))
++ Cpl_right_BELOW   = (d_MICRONS >= 2*(h_under+th))*Cpl_right_1_EVEN_BELOW + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th))*Cpl_right_2_EVEN_BELOW + (d_MICRONS < 2*(h_under))*Cpl_right_3_EVEN_BELOW
+*
++ Cpl_left_1_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(2/(pi-2))*log(0.5*pi) + Y3_BELOW*(2/pi)*log(1 + th/h_under))
++ Cpl_left_2_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(2/(pi-2))*log(0.5*pi) + Y3_BELOW*(2/pi)*log(0.5*s_MICRONS/h_under))
++ Cpl_left_3_EVEN_BELOW = E0*(Y1_BELOW*0.5*w_MICRONS/h_under + Y2_BELOW*(1-cos(alfa_s_BELOW))/(alfa_s_BELOW-sin(alfa_s_BELOW))*log(alfa_s_BELOW/sin(alfa_s_BELOW)))
++ Cpl_left_BELOW   = (s_MICRONS >= 2*(h_under+th))*Cpl_left_1_EVEN_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cpl_left_2_EVEN_BELOW + (s_MICRONS < 2*(h_under))*Cpl_left_3_EVEN_BELOW
+*         
++ Cs_1_EVEN_BELOW = E0*(Y4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_BELOW*(1/(pi-2))*log(0.5*pi))
++ Cs_2_EVEN_BELOW = E0*(Y4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_BELOW*(1/(pi-2))*log(0.5*pi) + Y6_BELOW*(th + h_under - 0.5*s_MICRONS)/s_MICRONS)
++ Cs_3_EVEN_BELOW = E0*(Y4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y5_BELOW*(1/(pi-2))*log(0.5*pi) + Y6_BELOW*th/s_MICRONS + Y7_BELOW*0.5*(1-cos(beta_s_BELOW))/(beta_s_BELOW-sin(beta_s_BELOW))*log(beta_s_BELOW/sin(beta_s_BELOW)))
++ Cs_EVEN_BELOW   = (s_MICRONS >= 2*(h_under+th))*Cs_1_EVEN_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cs_2_EVEN_BELOW + (s_MICRONS < 2*(h_under))*Cs_3_EVEN_BELOW
+*
++ Ce_BELOW  = (Cpl_right_BELOW + Cpl_left_BELOW)*(Epsilon_r_under*l) + Cs_EVEN_BELOW*(Epsilon_r_side*l)
++ Cpl_TMP_BELOW_1 =  (Cpl_right_BELOW + Cpl_left_BELOW)*Epsilon_r_under*l 
++ Cs_TMP_BELOW_1 = Cs_EVEN_BELOW*Epsilon_r_side*l   
+* 
+* Odd Mode ...
+*
++ Co_right_1_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(1 + th/h_under))
++ Co_right_2_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(0.5*d_MICRONS/h_under))
++ Co_right_3_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(1-cos(alfa_d_BELOW))/(alfa_d_BELOW-sin(alfa_d_BELOW))*log(alfa_d_BELOW/sin(alfa_d_BELOW)))
++ Co_right_BELOW = (d_MICRONS >= 2*(h_under+th))*Co_right_1_BELOW + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th))*Co_right_2_BELOW + (d_MICRONS < 2*(h_under))*Co_right_3_BELOW
+*
++ Co_left_1_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(1 + th/h_under))
++ Co_left_2_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(0.5*s_MICRONS/h_under))
++ Co_left_3_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(1-cos(alfa_s_BELOW))/(alfa_s_BELOW-sin(alfa_s_BELOW))*log(alfa_s_BELOW/sin(alfa_s_BELOW)))
++ Co_left_BELOW = (s_MICRONS >= 2*(h_under+th))*Co_left_1_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Co_left_2_BELOW + (s_MICRONS < 2*(h_under))*Co_left_3_BELOW
+*
++ Cs_1_ODD_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi))
++ Cs_2_ODD_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi) + Z6_BELOW*(th + h_under - 0.5*s_MICRONS )/s_MICRONS)
++ Cs_3_ODD_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi) + Z6_BELOW*th/s_MICRONS + Z7_BELOW*0.5*(1-cos(beta_s_BELOW))/(beta_s_BELOW-sin(beta_s_BELOW))*log(beta_s_BELOW/sin(beta_s_BELOW)))
++ Cs_ODD_BELOW = (s_MICRONS >= 2*(h_under+th))*Cs_1_ODD_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cs_2_ODD_BELOW + (s_MICRONS < 2*(h_under))*Cs_3_ODD_BELOW
+*
++ Cc_1_BELOW = E0*(Z8_BELOW*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_BELOW*(1/(pi-2))*log(0.5*pi))
++ Cc_2_BELOW = E0*(Z8_BELOW*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_BELOW*(1/(pi-2))*log(0.5*pi) + Z10_BELOW*(th + h_under - 0.5*d_MICRONS )/d_MICRONS)
++ Cc_3_BELOW = E0*(Z8_BELOW*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Z9_BELOW*(1/(pi-2))*log(0.5*pi) + Z10_BELOW*th/d_MICRONS + Z11_BELOW*0.5*(1-cos(beta_d_BELOW))/(beta_d_BELOW-sin(beta_d_BELOW))*log(beta_d_BELOW/sin(beta_d_BELOW)))
++ Cc_BELOW = (d_MICRONS >= 2*(h_under+th))*Cc_1_BELOW + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th))*Cc_2_BELOW + (d_MICRONS < 2*(h_under))*Cc_3_BELOW
+*
++ Co_BELOW = (Co_right_BELOW + Co_left_BELOW)*(Epsilon_r_under*l) + (Cs_ODD_BELOW + 2*Cc_BELOW)*(Epsilon_r_side*l)
+*
++ Cc_TMP_BELOW_1 = 0.5*(Co_BELOW - Ce_BELOW)*(0.5*(Co_BELOW - Ce_BELOW) >= 0) + (Cc_BELOW*Epsilon_r_side*l)*(0.5*(Co_BELOW - Ce_BELOW) < 0)
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_BELOW = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_TMP_BELOW = Cpl_TMP_BELOW_1*(patternfill == 0) + Cpl_TMP_BELOW_1*coefill_BELOW*(patternfill == 1)
+*
++ delta_BELOW = 1.0e-10
++ num_side_fill_BELOW_A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BELOW_A = int(num_side_fill_BELOW_A + delta_BELOW)
++ coefill_side_BELOW_A = s_MICRONS/(s_MICRONS - num_fill_BELOW_A*wfill*denfillc)
++ Cs_TMP_BELOW = Cs_TMP_BELOW_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BELOW_A < 1))) + Cs_TMP_BELOW_1*coefill_side_BELOW_A*(patternfill == 1 && (wfill > 0 && num_fill_BELOW_A >= 1))
+*
++ num_side_fill_BELOW_B = (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BELOW_B = int(num_side_fill_BELOW_B + delta_BELOW)
++ coefill_side_BELOW_B =  d_MICRONS/(d_MICRONS - num_fill_BELOW_B*wfill*denfillc)
++ Cc_TMP_BELOW = Cc_TMP_BELOW_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BELOW_B < 1))) + Cc_TMP_BELOW_1*coefill_side_BELOW_B*(patternfill == 1 && (wfill > 0 && num_fill_BELOW_B >= 1))
+* 
+* End Capacitance update due to Pattern Fill
+*
++ Cotot_BELOW = Cpl_TMP_BELOW + Cs_TMP_BELOW
+*
++ Cctot_BELOW_TMP = Cc_TMP_BELOW
++ Cox_BELOW_TMP = 1.0e-6*(Cotot_BELOW)
++ Coxo_BELOW_TMP = Cotot_BELOW
++ Csi_BELOW_TMP = 1.0e-20
++ Rsi_BELOW_TMP = 1.0e-20
+*-------------------------------------------------------------------------------------------------------//
++ Cox_BELOW = Cox_BELOW_TMP         // Calculated Cctot, Cox, Coxo, Csi, and Rsi for "plane" = BELOW.   //
++ Coxo_BELOW = Coxo_BELOW_TMP                                                                           //
++ Cctot_BELOW = Cctot_BELOW_TMP                                                                         //
++ Csi_BELOW = Csi_BELOW_TMP                                                                             //
++ Rsi_BELOW = Rsi_BELOW_TMP                                                                             // 		    	                                 
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for coupled CPW with crossing lines both ("plane" = 3 [BOTH]) ...
++ cf_BOTH = 0.8
++ Y1_BOTH = 1.0152
++ Y2_BOTH = 0.8453*cf_BOTH
++ Y3_BOTH = 1.2812
++ Y4_BOTH = 1.3171
++ Y5_BOTH = 1.6266*cf_BOTH
+*
++ Z1_BOTH = 1.0502
++ Z2_BOTH = 0.7767*cf_BOTH
++ Z3_BOTH = 1.0154
++ Z4_BOTH = 1.1434
++ Z5_BOTH = 1.1775*cf_BOTH
++ Z6_BOTH = 1.1979
++ Z7_BOTH = 1.4651*cf_BOTH
+*
++ th1_BOTH = th*h_over/(h_under+h_over)
++ th2_BOTH = th*h_under/(h_under+h_over)
+*
++ alfa_s_BOTH_1 = 2*atan(0.5*s_MICRONS/h_under)
++ beta_s_BOTH_1 = pi/2 - alfa_s_BOTH_1
++ alfa_d_BOTH_1 = 2*atan(0.5*d_MICRONS/h_under)
++ beta_d_BOTH_1 = pi/2 - alfa_d_BOTH_1
+*
++ alfa_s_BOTH_2 = 2*atan(0.5*s_MICRONS/h_over)
++ beta_s_BOTH_2 = pi/2 - alfa_s_BOTH_2
++ alfa_d_BOTH_2 = 2*atan(0.5*d_MICRONS/h_over)
++ beta_d_BOTH_2 = pi/2 - alfa_d_BOTH_2
+*
+* First, determine static capacitance for h_under and th1_BOTH ... 
+* Even Mode ...
+*
++ Cpl_right_1_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th1_BOTH/h_under) )
++ Cpl_right_2_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_right_3_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*((1-cos(alfa_d_BOTH_1))/(alfa_d_BOTH_1-sin(alfa_d_BOTH_1)))*log(alfa_d_BOTH_1/sin(alfa_d_BOTH_1)) )
++ Cpl_right_BOTH_1_1 = (d_MICRONS >= 2*(h_under+th1_BOTH))*Cpl_right_1_BOTH_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_BOTH))*Cpl_right_2_BOTH_1 + (d_MICRONS < 2*(h_under))*Cpl_right_3_BOTH_1
+*
++ Cpl_left_1_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th1_BOTH/h_under) )
++ Cpl_left_2_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Cpl_left_3_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*((1-cos(alfa_s_BOTH_1))/(alfa_s_BOTH_1-sin(alfa_s_BOTH_1)))*log(alfa_s_BOTH_1/sin(alfa_s_BOTH_1)) )
++ Cpl_left_BOTH_1_1 = (s_MICRONS >= 2*(h_under+th1_BOTH))*Cpl_left_1_BOTH_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Cpl_left_2_BOTH_1 + (s_MICRONS < 2*(h_under))*Cpl_left_3_BOTH_1
+*
++ Cs_1_BOTH_1_EVEN = 0.0
++ Cs_2_BOTH_1_EVEN = E0*(Y4_BOTH*(th1_BOTH+h_under-s_MICRONS/2)/s_MICRONS)
++ Cs_3_BOTH_1_EVEN = E0*(Y4_BOTH*(th1_BOTH/s_MICRONS) + 0.5*Y5_BOTH*((1-cos(beta_s_BOTH_1))/(beta_s_BOTH_1-sin(beta_s_BOTH_1)))*log(beta_s_BOTH_1/sin(beta_s_BOTH_1)))
++ Cs_BOTH_1_EVEN_1 = (s_MICRONS >= 2*(h_under+th1_BOTH))*Cs_1_BOTH_1_EVEN + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Cs_2_BOTH_1_EVEN + (s_MICRONS < 2*(h_under))*Cs_3_BOTH_1_EVEN
+*
+* Capacitance update due to Pattern Fill [1]
+*
++ coefill_BOTH_1 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_right_BOTH_1 = Cpl_right_BOTH_1_1*(patternfill == 0) + Cpl_right_BOTH_1_1*coefill_BOTH_1*(patternfill == 1)
++ Cpl_left_BOTH_1 = Cpl_left_BOTH_1_1*(patternfill == 0) + Cpl_left_BOTH_1_1*coefill_BOTH_1*(patternfill == 1)
+*
++ delta_BOTH_1 = 1.0e-10
++ num_side_fill_BOTH_1 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_1 = int(num_side_fill_BOTH_1 + delta_BOTH_1)
++ coefill_side_BOTH_1 = s_MICRONS/(s_MICRONS - num_fill_BOTH_1*wfill*denfillc)
++ Cs_BOTH_1_EVEN = Cs_BOTH_1_EVEN_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_1 < 1))) + Cs_BOTH_1_EVEN_1*coefill_side_BOTH_1*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_1 >= 1))
+*
+* End Capacitance update due to Pattern Fill  
+*
++ Cpl_tmp_BOTH_1 = (Cpl_right_BOTH_1 + Cpl_left_BOTH_1)*(Epsilon_r_under*l)
++ Cs_tmp_BOTH_1 = Cs_BOTH_1_EVEN*Epsilon_r_side*l 
++ Ceven_tmp_BOTH_1 = (Cpl_right_BOTH_1 + Cpl_left_BOTH_1)*(Epsilon_r_under*l) + Cs_BOTH_1_EVEN*Epsilon_r_side*l
+*
+* Odd Mode ...
+*
++ Co_right_1_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(1 + th1_BOTH/h_under) )       
++ Co_right_2_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(d_MICRONS/(2*h_under)) )
++ Co_right_3_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*((1-cos(alfa_d_BOTH_1))/(alfa_d_BOTH_1-sin(alfa_d_BOTH_1)))*log(alfa_d_BOTH_1/sin(alfa_d_BOTH_1)) )
++ Co_right_BOTH_1_1 = (d_MICRONS >= 2*(h_under+th1_BOTH))*Co_right_1_BOTH_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_BOTH))*Co_right_2_BOTH_1 + (d_MICRONS < 2*(h_under))*Co_right_3_BOTH_1
+*
++ Co_left_1_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(1 + th1_BOTH/h_under) )
++ Co_left_2_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(s_MICRONS/(2*h_under)) )
++ Co_left_3_BOTH_1 = E0*( Z1_BOTH*w_MICRONS/(2*h_under) + Z2_BOTH*((1-cos(alfa_s_BOTH_1))/(alfa_s_BOTH_1-sin(alfa_s_BOTH_1)))*log(alfa_s_BOTH_1/sin(alfa_s_BOTH_1)) )
++ Co_left_BOTH_1_1 = (s_MICRONS >= 2*(h_under+th1_BOTH))*Co_left_1_BOTH_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Co_left_2_BOTH_1 + (s_MICRONS < 2*(h_under))*Co_left_3_BOTH_1
+*
++ Cs_1_BOTH_1_ODD = 0.0   
++ Cs_2_BOTH_1_ODD = E0*(Z4_BOTH*(th1_BOTH+h_under-s_MICRONS/2)/s_MICRONS)  
++ Cs_3_BOTH_1_ODD = E0*(Z4_BOTH*(th1_BOTH/s_MICRONS) + 0.5*Z5_BOTH*((1-cos(beta_s_BOTH_1))/(beta_s_BOTH_1-sin(beta_s_BOTH_1)))*log(beta_s_BOTH_1/sin(beta_s_BOTH_1)) )  
++ Cs_BOTH_1_ODD_1 = (s_MICRONS >= 2*(h_under+th1_BOTH))*Cs_1_BOTH_1_ODD + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Cs_2_BOTH_1_ODD + (s_MICRONS < 2*(h_under))*Cs_3_BOTH_1_ODD
+*
++ Cc_1_BOTH_1 = 0.0
++ Cc_2_BOTH_1 = E0*(Z6_BOTH*(th1_BOTH+h_under-d_MICRONS/2)/d_MICRONS)
++ Cc_3_BOTH_1 = E0*(Z6_BOTH*(th1_BOTH/d_MICRONS) + Z7_BOTH*0.5*((1-cos(beta_d_BOTH_1))/(beta_d_BOTH_1-sin(beta_d_BOTH_1)))*log(beta_d_BOTH_1/sin(beta_d_BOTH_1)))
++ Cc_BOTH_1_1 = (d_MICRONS >= 2*(h_under+th1_BOTH))*Cc_1_BOTH_1 + (d_MICRONS >= 2*(h_under) && d_MICRONS < 2*(h_under+th1_BOTH))*Cc_2_BOTH_1 + (d_MICRONS < 2*(h_under))*Cc_3_BOTH_1
+*   
+* Capacitance update due to Pattern Fill [2]
+*
++ coefill_BOTH_2 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Co_right_BOTH_1 = Co_right_BOTH_1_1*(patternfill == 0) + Co_right_BOTH_1_1*coefill_BOTH_2*(patternfill == 1)
++ Co_left_BOTH_1 = Co_left_BOTH_1_1*(patternfill == 0) + Co_left_BOTH_1_1*coefill_BOTH_2*(patternfill == 1)
+*
++ delta_BOTH_2= 1.0e-10
++ num_side_fill_BOTH_2A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_2A = int(num_side_fill_BOTH_2A + delta_BOTH_2)
++ coefill_side_BOTH_2A = s_MICRONS/(s_MICRONS - wfill*denfillc)
++ Cs_BOTH_1_ODD = Cs_BOTH_1_ODD_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_2A < 1))) + Cs_BOTH_1_ODD_1*coefill_side_BOTH_2A*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_2A >= 1))
+*
++ num_side_fill_BOTH_2B =  (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_2B = int(num_side_fill_BOTH_2B + delta_BOTH_2)
++ coefill_side_BOTH_2B = d_MICRONS/(d_MICRONS - num_fill_BOTH_2B*wfill*denfillc)
++ Cc_BOTH_1  = Cc_BOTH_1_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_2B < 1))) + Cc_BOTH_1_1*coefill_side_BOTH_2B*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_2B >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Codd_tmp_BOTH_1 = (Co_right_BOTH_1 + Co_left_BOTH_1)*Epsilon_r_under*l + (Cs_BOTH_1_ODD + 2*Cc_BOTH_1)*Epsilon_r_side*l
++ Cc_tmp_BOTH_1 = Cc_BOTH_1*Epsilon_r_side*l   
+*
++ C1pl_BOTH_1 = Cpl_tmp_BOTH_1
++ C1s_BOTH_1 = Cs_tmp_BOTH_1   
++ C1even_BOTH = Ceven_tmp_BOTH_1
++ C1odd_BOTH = Codd_tmp_BOTH_1
++ C1c_BOTH = Cc_tmp_BOTH_1
+*
+* Then, determine static capacitance for h_over and th2_BOTH ... 
+* Even Mode ...
+*
++ Cpl_right_1_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th2_BOTH/h_over) )
++ Cpl_right_2_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Cpl_right_3_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*((1-cos(alfa_d_BOTH_2))/(alfa_d_BOTH_2-sin(alfa_d_BOTH_2)))*log(alfa_d_BOTH_2/sin(alfa_d_BOTH_2)) )
++ Cpl_right_BOTH_2_1 = (d_MICRONS >= 2*(h_over+th2_BOTH))*Cpl_right_1_BOTH_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_BOTH))*Cpl_right_2_BOTH_2 + (d_MICRONS < 2*(h_over))*Cpl_right_3_BOTH_2
+*
++ Cpl_left_1_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th2_BOTH/h_over) )
++ Cpl_left_2_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Cpl_left_3_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*((1-cos(alfa_s_BOTH_2))/(alfa_s_BOTH_2-sin(alfa_s_BOTH_2)))*log(alfa_s_BOTH_2/sin(alfa_s_BOTH_2)) )
++ Cpl_left_BOTH_2_1 = (s_MICRONS >= 2*(h_over+th2_BOTH))*Cpl_left_1_BOTH_2 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Cpl_left_2_BOTH_2 + (s_MICRONS < 2*(h_over))*Cpl_left_3_BOTH_2
+*
++ Cs_1_BOTH_2_EVEN = 0.0
++ Cs_2_BOTH_2_EVEN = E0*(Y4_BOTH*(th2_BOTH+h_over-s_MICRONS/2)/s_MICRONS)
++ Cs_3_BOTH_2_EVEN = E0*(Y4_BOTH*(th2_BOTH/s_MICRONS) + 0.5*Y5_BOTH*((1-cos(beta_s_BOTH_2))/(beta_s_BOTH_2-sin(beta_s_BOTH_2)))*log(beta_s_BOTH_2/sin(beta_s_BOTH_2)))
++ Cs_BOTH_2_EVEN_1 = (s_MICRONS >= 2*(h_over+th2_BOTH))*Cs_1_BOTH_2_EVEN + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Cs_2_BOTH_2_EVEN + (s_MICRONS < 2*(h_over))*Cs_3_BOTH_2_EVEN
+*
+* Capacitance update due to Pattern Fill [3]
+*
++ coefill_BOTH_3 = (1 - denfill) + denfill*h_under/(h_over - h_fill_over)
++ Cpl_right_BOTH_2 = Cpl_right_BOTH_2_1*(patternfill == 0) + Cpl_right_BOTH_2_1*coefill_BOTH_3*(patternfill == 1)
++ Cpl_left_BOTH_2 = Cpl_left_BOTH_2_1*(patternfill == 0) + Cpl_left_BOTH_2_1*coefill_BOTH_3*(patternfill == 1)
+*
++ delta_BOTH_3 = 1.0e-10
++ num_side_fill_BOTH_3 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_3 = int(num_side_fill_BOTH_3 + delta_BOTH_3)
++ coefill_side_BOTH_3 = s_MICRONS/(s_MICRONS - num_fill_BOTH_3*wfill*denfillc)
++ Cs_BOTH_2_EVEN = Cs_BOTH_2_EVEN_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_3 < 1))) + Cs_BOTH_2_EVEN_1*coefill_side_BOTH_3*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_3 >= 1))
+*
+* End Capacitance update due to Pattern Fill  
+*
++ Cpl_tmp_BOTH_2 = (Cpl_right_BOTH_2 + Cpl_left_BOTH_2)*(Epsilon_r_over*l)
++ Cs_tmp_BOTH_2 = Cs_BOTH_2_EVEN*Epsilon_r_side*l 
++ Ceven_tmp_BOTH_2 = (Cpl_right_BOTH_2 + Cpl_left_BOTH_2)*(Epsilon_r_over*l) + Cs_BOTH_2_EVEN*Epsilon_r_side*l 
+*
+* Odd Mode ...
+*
++ Co_right_1_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(1 + th2_BOTH/h_over) )       
++ Co_right_2_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(d_MICRONS/(2*h_over)) )
++ Co_right_3_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*((1-cos(alfa_d_BOTH_2))/(alfa_d_BOTH_2-sin(alfa_d_BOTH_2)))*log(alfa_d_BOTH_2/sin(alfa_d_BOTH_2)) )
++ Co_right_BOTH_2_1 = (d_MICRONS >= 2*(h_over+th2_BOTH))*Co_right_1_BOTH_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_BOTH))*Co_right_2_BOTH_2 + (d_MICRONS < 2*(h_over))*Co_right_3_BOTH_2
+*
++ Co_left_1_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(1 + th2_BOTH/h_over) )
++ Co_left_2_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*(2/(pi-2))*log(pi/2) + Z3_BOTH*(2/pi)*log(s_MICRONS/(2*h_over)) )
++ Co_left_3_BOTH_2 = E0*( Z1_BOTH*w_MICRONS/(2*h_over) + Z2_BOTH*((1-cos(alfa_s_BOTH_2))/(alfa_s_BOTH_2-sin(alfa_s_BOTH_2)))*log(alfa_s_BOTH_2/sin(alfa_s_BOTH_2)) )
++ Co_left_BOTH_2_1 = (s_MICRONS >= 2*(h_over+th2_BOTH))*Co_left_1_BOTH_2 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Co_left_2_BOTH_2 + (s_MICRONS < 2*(h_over))*Co_left_3_BOTH_2
+*
++ Cs_1_BOTH_2_ODD = 0.0   
++ Cs_2_BOTH_2_ODD = E0*(Z4_BOTH*(th2_BOTH+h_over-s_MICRONS/2)/s_MICRONS)  
++ Cs_3_BOTH_2_ODD = E0*(Z4_BOTH*(th2_BOTH/s_MICRONS) + 0.5*Z5_BOTH*((1-cos(beta_s_BOTH_2))/(beta_s_BOTH_2-sin(beta_s_BOTH_2)))*log(beta_s_BOTH_2/sin(beta_s_BOTH_2)) )  
++ Cs_BOTH_2_ODD_1 = (s_MICRONS >= 2*(h_over+th2_BOTH))*Cs_1_BOTH_2_ODD + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Cs_2_BOTH_2_ODD + (s_MICRONS < 2*(h_over))*Cs_3_BOTH_2_ODD
+*
++ Cc_1_BOTH_2 = 0.0
++ Cc_2_BOTH_2 = E0*(Z6_BOTH*(th2_BOTH+h_over-d_MICRONS/2)/d_MICRONS)
++ Cc_3_BOTH_2 = E0*(Z6_BOTH*(th2_BOTH/d_MICRONS) + Z7_BOTH*0.5*((1-cos(beta_d_BOTH_2))/(beta_d_BOTH_2-sin(beta_d_BOTH_2)))*log(beta_d_BOTH_2/sin(beta_d_BOTH_2)))
++ Cc_BOTH_2_1 = (d_MICRONS >= 2*(h_over+th2_BOTH))*Cc_1_BOTH_2 + (d_MICRONS >= 2*(h_over) && d_MICRONS < 2*(h_over+th2_BOTH))*Cc_2_BOTH_2 + (d_MICRONS < 2*(h_over))*Cc_3_BOTH_2
+*   
+* Capacitance update due to Pattern Fill [4]
+*
++ coefill_BOTH_4 = (1 - denfill) + denfill*h_over/(h_over - h_fill_over)
++ Co_right_BOTH_2 = Co_right_BOTH_2_1*(patternfill == 0) + Co_right_BOTH_2_1*coefill_BOTH_4*(patternfill == 1)
++ Co_left_BOTH_2 = Co_left_BOTH_2_1*(patternfill == 0) + Co_left_BOTH_2_1*coefill_BOTH_4*(patternfill == 1)
+*
++ delta_BOTH_4 = 1.0e-10
++ num_side_fill_BOTH_4A = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_4A = int(num_side_fill_BOTH_4A + delta_BOTH_4)
++ coefill_side_BOTH_4A = s_MICRONS/(s_MICRONS - wfill*denfillc)
++ Cs_BOTH_2_ODD = Cs_BOTH_2_ODD_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_4A < 1))) + Cs_BOTH_2_ODD_1*coefill_side_BOTH_4A*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_4A >= 1))
+*
++ num_side_fill_BOTH_4B =  (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH_4B = int(num_side_fill_BOTH_4B + delta_BOTH_4)
++ coefill_side_BOTH_4B = d_MICRONS/(d_MICRONS - num_fill_BOTH_4B*wfill*denfillc)
++ Cc_BOTH_2  = Cc_BOTH_2_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH_4B < 1))) + Cc_BOTH_2_1*coefill_side_BOTH_4B*(patternfill == 1 && (wfill > 0 && num_fill_BOTH_4B >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Codd_tmp_BOTH_2 = (Co_right_BOTH_2 + Co_left_BOTH_2)*Epsilon_r_over*l + (Cs_BOTH_2_ODD + 2*Cc_BOTH_2)*Epsilon_r_side*l
++ Cc_tmp_BOTH_2 = Cc_BOTH_2*Epsilon_r_side*l  
+*
++ C1pl_BOTH_2 = Cpl_tmp_BOTH_2
++ C1s_BOTH_2 = Cs_tmp_BOTH_2   
++ C2even_BOTH = Ceven_tmp_BOTH_2
++ C2odd_BOTH = Codd_tmp_BOTH_2
++ C2c_BOTH = Cc_tmp_BOTH_2
+*
++ Cotot_BOTH_TMP = C1even_BOTH + C2even_BOTH
++ Codd_BOTH_TMP = C1odd_BOTH  + C2odd_BOTH
+*
++ Cctot_BOTH_TMP = (C1c_BOTH + C2c_BOTH)*(0.5*(Codd_BOTH_TMP - Cotot_BOTH_TMP) < 0) + 0.5*(Codd_BOTH_TMP - Cotot_BOTH_TMP)*(0.5*(Codd_BOTH_TMP - Cotot_BOTH_TMP) >= 0) 
++ Coxo_BOTH_TMP = Cotot_BOTH_TMP
++ Cox_BOTH_TMP = 1.0e-6*Coxo_BOTH_TMP 
++ Csi_BOTH_TMP = 1.0e-20
++ Rsi_BOTH_TMP = 1.0e-20
+*-------------------------------------------------------------------------------------------------------//
++ Cox_BOTH = Cox_BOTH_TMP              // Calculated Cctot, Cox, Coxo, Csi, and Rsi for "plane" = BOTH. //
++ Coxo_BOTH = Coxo_BOTH_TMP                                                                             //
++ Cctot_BOTH = Cctot_BOTH_TMP                                                                           //
++ Csi_BOTH = Csi_BOTH_TMP                                                                               //
++ Rsi_BOTH = Rsi_BOTH_TMP                                                                               // 		    	                                 
+*-------------------------------------------------------------------------------------------------------//
+* Determine Cotot, Coxo, and Rsi for crosstype = CUSTOM ...
++ Cotot_CUST = C_cust*l    
++ Cctot_CUST = Cc_cust*l
++ Coxo_CUST = Cotot_CUST - Cox_NONE
+*
+* Determine Cctot, Cox, Coxo with crosscapfactor contribution for crosstype = FULL PLANE ... 
++ Cox_FULL =   ((1.0 - crosscapfactor)*Cox_NONE + crosscapfactor*(Cox_NONE*(plane == 0) + Cox_ABOVE*(plane == 1) + Cox_BELOW*(plane == 2) + Cox_BOTH*(plane == 3)))*(crosstype == 0)
++ Coxo_FULL =  ((1.0 - crosscapfactor)*Coxo_NONE + crosscapfactor*(Coxo_NONE*(plane == 0) + Coxo_ABOVE*(plane == 1) + Coxo_BELOW*(plane == 2) + Coxo_BOTH*(plane == 3)))*(crosstype == 0) + ((C_cust*l - Cox_NONE)*(crosstype == 1))
++ Cctot_FULL = ((1.0 - crosscapfactor)*Cctot_NONE + crosscapfactor*(Cctot_NONE*(plane == 0) + Cctot_ABOVE*(plane == 1) + Cctot_BELOW*(plane == 2) + Cctot_BOTH*(plane == 3)))*(crosstype == 0) + ((Cc_cust*l)*(crosstype == 1))
+*      
+* Then, determine Csi and Rsi (Silicon substrate frequency-dependent capacitive coupling and energy loss) for crosstype = FULL PLANE with crosscapfactor correction ...
++ Csi_FULL = Csi_NONE*(plane == 0) + Csi_ABOVE*(plane == 1) + Csi_BELOW*(plane == 2) + Csi_BOTH*(plane == 3) 
++ Rsi_FULL = Rsi_NONE*(plane == 0) + Rsi_ABOVE*(plane == 1) + Rsi_BELOW*(plane == 2) + Rsi_BOTH*(plane == 3)
+*
+* Assignment of FULL PLANE or CUSTOM values to Cox, Coxo, Csi, and Rsi for the nominal case ...
++ Cox = Cox_FULL*(crosstype == 0)   + Cox_NONE*(crosstype == 1)
++ Coxo = Coxo_FULL*(crosstype == 0)  + Coxo_CUST*(crosstype == 1)
++ Cctot = Cctot_FULL*(crosstype == 0) + Cctot_CUST*(crosstype == 1)
++ Csi = max(1e-20,Csi_FULL*(crosstype == 0)   + Csi_NONE*(crosstype == 1))
++ Rsi = max(1e-10,Rsi_FULL*(crosstype == 0) + Rsi_BOTH*(crosstype == 1 && siliconlosses == 0) + Rsi_NONE*(crosstype == 1 && siliconlosses == 1))
+*	
+* delta_L and delta_R calculations for coupled wire coplanar waveguide, same for either crosstype, i.e., FULL PLANE or CUSTOM, for the nominal case ... 
++ mu = 4*pi*1e-7
++ fi = 1.34251e9
+*
++ mm = mu/(2*pi)
++ F_cs_o1 = ( ( (((w_MICRONS+d_MICRONS+w_MICRONS)*th)*((w_MICRONS+d_MICRONS+w_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+w_MICRONS+th)-1.5) - (((w_MICRONS+d_MICRONS)*th)*((w_MICRONS+d_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+th)-1.5) - (((w_MICRONS+d_MICRONS)*th)*((w_MICRONS+d_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+th)-1.5) + ((d_MICRONS*th)*(d_MICRONS*th))*(log(d_MICRONS+th)-1.5) )/2 )/((th*w_MICRONS)*(th*w_MICRONS))
++ L0_odd = mm*(F_cs_o1 - (log(th + w_MICRONS)-1.5))
++ d0 = d_MICRONS + w_MICRONS +s_MICRONS
++ tmp12 = (((((w_MICRONS+d0+w_MICRONS)*th)*((w_MICRONS+d0+w_MICRONS)*th))*(log(w_MICRONS+d0+w_MICRONS+th)-1.5) - (((w_MICRONS+d0)*th)*((w_MICRONS+d0)*th))*(log(w_MICRONS+d0+th)-1.5) - (((w_MICRONS+d0)*th)*((w_MICRONS+d0)*th))*(log(w_MICRONS+d0+th)-1.5) + ((d0*th)*(d0*th))*(log(d0+th)-1.5))/2)
++ F_cs_e1 = ((( ( (((w_MICRONS+s_MICRONS+w_MICRONS)*th)*((w_MICRONS+s_MICRONS+w_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+w_MICRONS+th)-1.5) - (((w_MICRONS+s_MICRONS)*th)*((w_MICRONS+s_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+th)-1.5) - (((w_MICRONS+s_MICRONS)*th)*((w_MICRONS+s_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+th)-1.5) + ((s_MICRONS*th)*(s_MICRONS*th))*(log(s_MICRONS+th)-1.5) )/2 ) + ((tmp12)))/2)/((w_MICRONS*w_MICRONS)*(th*th))
++ d1 = 2.0*(w_MICRONS+s_MICRONS)+d_MICRONS
++ F_cs_e2 = ((( ( (((w_MICRONS+d1+w_MICRONS)*th)*((w_MICRONS+d1+w_MICRONS)*th))*(log(w_MICRONS+d1+w_MICRONS+th)-1.5) - (((w_MICRONS+d1)*th)*((w_MICRONS+d1)*th))*(log(w_MICRONS+d1+th)-1.5) - (((w_MICRONS+d1)*th)*((w_MICRONS+d1)*th))*(log(w_MICRONS+d1+th)-1.5) + ((d1*th)*(d1*th))*(log(d1+th)-1.5) )/2 ) + (((w_MICRONS*th)*(w_MICRONS*th))*(log(w_MICRONS+th)-1.5)))/2)/((w_MICRONS*th)*(w_MICRONS*th))
++ F_cs_e3 = ((( ( (((w_MICRONS+d_MICRONS+w_MICRONS)*th)*((w_MICRONS+d_MICRONS+w_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+w_MICRONS+th)-1.5) - (((w_MICRONS+d_MICRONS)*th)*((w_MICRONS+d_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+th)-1.5) - (((w_MICRONS+d_MICRONS)*th)*((w_MICRONS+d_MICRONS)*th))*(log(w_MICRONS+d_MICRONS+th)-1.5) + ((d_MICRONS*th)*(d_MICRONS*th))*(log(d_MICRONS+th)-1.5) )/2 ) + (((w_MICRONS*th)*(w_MICRONS*th))*(log(w_MICRONS+th)-1.5)))/2)/((w_MICRONS*th)*(w_MICRONS*th))
++ L0_even = mm*(2*F_cs_e1 - F_cs_e3 - F_cs_e2)*2
++ L0 = l*(L0_odd + L0_even)/2
++ M0 = l*(L0_even - L0_odd)/2
++ delta_L_NOM = abs(((ratio*ratio)/(ratio*ratio + ratio + 1))*((L0) - (Ltot_NOM)))
++ delta_R_NOM =  2*pi*ratio*(delta_L_NOM)*(fi) 
+*
+* End calculations for delta_L_NOM and delta_R_NOM ...
+*
++ Ltot = Ltot_NOM
++ delta_L = delta_L_NOM
++ delta_R = delta_R_NOM
++ K = K_NOM
+*
+* coupledcpw netlist follows ...
+*
+C118 (vshield net0547) capacitor c=Coxo/3
+C97 (vshield net0495) capacitor c=Coxo/3
+C112 (net0289 net0513) capacitor c=Csi/3
+C113 (vshield net0289) capacitor c=Cox/3
+C114 (vshield net0513) capacitor c=Coxo/3
+C115 (vshield vb1) capacitor c=Coxo/6
+C116 (vshield net0299) capacitor c=Cox/6
+C117 (net0299 vb1) capacitor c=Csi/6
+C126 (net0255 net0517) capacitor c=Csi/3
+C127 (vshield net0255) capacitor c=Cox/3
+C128 (vshield net0517) capacitor c=Coxo/3
+C129 (vshield vb2) capacitor c=Coxo/6
+C130 (vshield net0245) capacitor c=Cox/6
+C131 (net0245 vb2) capacitor c=Csi/6
+C132 (net0243 net0547) capacitor c=Csi/3
+C140 (net0239 va2) capacitor c=Csi/6
+C147 (vshield va2) capacitor c=Coxo/6
+C148 (vshield net0239) capacitor c=Cox/6
+C149 (vshield net0243) capacitor c=Cox/3
+C99 (net0301 net0495) capacitor c=Csi/3
+C85 (net0513 net0517) capacitor c=Cctot/3
+C59 (va1 va2) capacitor c=Cctot/6
+C60 (net0495 net0547) capacitor c=Cctot/3
+C71 (net0317 va1) capacitor c=Csi/6
+C88 (vb1 vb2) capacitor c=Cctot/6
+C72 (vshield va1) capacitor c=Coxo/6
+C73 (vshield net0317) capacitor c=Cox/6
+C98 (vshield net0301) capacitor c=Cox/3
+L94 (net0565 net0545) inductor l=delta_L/3
+L2 (va2 net0361) inductor l=Ltot/3
+L3 (net0495 net0157) inductor l=Ltot/3
+L117 (net0703 net0511) inductor l=delta_L/3
+L118 (net0511 net0507) inductor l=(delta_L/ratio)/3
+L139 (net0493 vb1) inductor l=(delta_L/(ratio*ratio))/3
+L91 (net0469 net0495) inductor l=(delta_L/(ratio*ratio))/3
+L138 (net0461 net0493) inductor l=(delta_L/ratio)/3
+L119 (net0507 net0513) inductor l=(delta_L/(ratio*ratio))/3
+L13 (net0513 net0145) inductor l=Ltot/3
+L90 (net0669 net0471) inductor l=delta_L/3
+L92 (net0471 net0469) inductor l=(delta_L/ratio)/3
+L1 (va1 net0161) inductor l=Ltot/3
+L137 (net0675 net0461) inductor l=delta_L/3
+L14 (net0517 net0347) inductor l=Ltot/3
+L99 (net0159 net0559) inductor l=delta_L/3
+L4 (net0547 net0309) inductor l=Ltot/3
+L143 (net0537 net0543) inductor l=delta_L/3
+L141 (net0543 net0523) inductor l=(delta_L/ratio)/3
+L112 (net0541 vb2) inductor l=(delta_L/(ratio*ratio))/3
+L111 (net0557 net0547) inductor l=(delta_L/(ratio*ratio))/3
+L110 (net0545 net0541) inductor l=(delta_L/ratio)/3
+L109 (net0523 net0517) inductor l=(delta_L/(ratio*ratio))/3
+L98 (net0559 net0557) inductor l=(delta_L/ratio)/3
+K48 mutual_inductor ind1=L1 ind2=L2 coupling=K_NOM
+K49 mutual_inductor ind1=L3 ind2=L4 coupling=K_NOM
+K54 mutual_inductor ind1=L13 ind2=L14 coupling=K_NOM
+R192 (net0145 net0675) resistor r=Rtot/3
+R258 (net0361 net0159) resistor r=Rtot/3
+R261 (net0161 net0669) resistor r=Rtot/3
+R193 (net0347 net0565) resistor r=Rtot/3
+R152 (net0513 net0289) resistor r=Rsi*3
+R153 (vb1 net0299) resistor r=Rsi*6
+R157 (net0517 net0255) resistor r=Rsi*3
+R158 (vb2 net0245) resistor r=Rsi*6
+R159 (net0547 net0243) resistor r=Rsi*3
+R188 (va2 net0239) resistor r=Rsi*6
+R146 (net0495 net0301) resistor r=Rsi*3
+R119 (net0507 net0513) resistor r=delta_R*ratio*ratio/3
+R118 (net0511 net0507) resistor r=delta_R*ratio/3
+R139 (net0493 vb1) resistor r=delta_R*ratio*ratio/3
+R138 (net0461 net0493) resistor r=delta_R*ratio/3
+R117 (net0703 net0511) resistor r=delta_R/3
+R137 (net0675 net0461) resistor r=delta_R/3
+R91 (net0469 net0495) resistor r=delta_R*ratio*ratio/3
+R90 (net0471 net0469) resistor r=delta_R*ratio/3
+R92 (net0669 net0471) resistor r=delta_R/3
+R145 (net0523 net0517) resistor r=delta_R*ratio*ratio/3
+R142 (net0543 net0523) resistor r=delta_R*ratio/3
+R114 (net0541 vb2) resistor r=delta_R*ratio*ratio/3
+R109 (net0545 net0541) resistor r=delta_R*ratio/3
+R108 (net0537 net0543) resistor r=delta_R/3
+R107 (net0565 net0545) resistor r=delta_R/3
+R106 (net0557 net0547) resistor r=delta_R*ratio*ratio/3
+R101 (net0559 net0557) resistor r=delta_R*ratio/3
+R100 (net0159 net0559) resistor r=delta_R/3
+R147 (va1 net0317) resistor r=Rsi*6
+R191 (net0157 net0703) resistor r=Rtot/3
+R190 (net0309 net0537) resistor r=Rtot/3
+
+ends coupledcpw

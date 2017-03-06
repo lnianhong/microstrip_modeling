@@ -1,0 +1,15 @@
+coxinf   (in finsub)   capacitor   c=pcox*l/8
+csxinf   (finsub ref)  capacitor   c=pcsx/8
+rsxinf   (finsub ref)  resistor    r=prsx*8  tc1=trsub   trise=dtemp
+coxmidf  (f2 fmidsub)  capacitor   c=pcox*l/4
+csxmidf  (fmidsub ref) capacitor   c=pcsx/4
+rsxmidf  (fmidsub ref) resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxinc   (mid consub)  capacitor   c=pcox*l/4
+csxinc   (consub ref)  capacitor   c=pcsx/4
+rsxinc   (consub ref)  resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxmids  (s2 smidsub)  capacitor   c=pcox*l/4
+csxmids  (smidsub ref) capacitor   c=pcsx/4
+rsxmids  (smidsub ref) resistor    r=prsx*4  tc1=trsub   trise=dtemp
+coxout   (out outsub)  capacitor   c=pcox*l/8
+csxout   (outsub ref)  capacitor   c=pcsx/8
+rsxout   (outsub ref)  resistor    r=prsx*8  tc1=trsub   trise=dtemp

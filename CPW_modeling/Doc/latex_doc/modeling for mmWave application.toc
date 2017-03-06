@@ -1,0 +1,8 @@
+\contentsline {section}{\numberline {1}建模提参理论分析}{2}{section.1}
+\contentsline {subsection}{\numberline {1.1}新型电感传输线模型}{2}{subsection.1.1}
+\contentsline {subsection}{\numberline {1.2}模型参数提取}{3}{subsection.1.2}
+\contentsline {subsubsection}{\numberline {1.2.1}串联部分的模型参数提取}{4}{subsubsection.1.2.1}
+\contentsline {subsubsection}{\numberline {1.2.2}并联部分的模型参数提取}{5}{subsubsection.1.2.2}
+\contentsline {subsubsection}{\numberline {1.2.3}模型参数优化}{6}{subsubsection.1.2.3}
+\contentsline {section}{\numberline {2}去除电磁场仿真端口效应}{8}{section.2}
+\contentsline {section}{\numberline {3} CPW建模提参以及可放缩模型}{10}{section.3}

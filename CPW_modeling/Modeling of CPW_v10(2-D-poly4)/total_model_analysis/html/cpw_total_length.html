@@ -1,0 +1,230 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>cpw_total_length</title><meta name="generator" content="MATLAB 9.1"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-11-07"><meta name="DC.source" content="cpw_total_length.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><h2>Contents</h2><div><ul><li><a href="#1">&#19981;&#32771;&#34385;&#20998;&#31471;&#21475;&#25928;&#24212;</a></li><li><a href="#2">RLGC unit length vs length</a></li><li><a href="#3">alpha beta VS length under different frequency</a></li><li><a href="#4">consider the port</a></li></ul></div><h2 id="1">&#19981;&#32771;&#34385;&#20998;&#31471;&#21475;&#25928;&#24212;</h2><pre class="codeinput">clear;close <span class="string">all</span>
+dbstop <span class="string">if</span> <span class="string">error</span>;
+len = [150,200,250,300,350,400,450,500,600];<span class="comment">%W ==5</span>
+len_pi = 12.5*1e-6;
+space = 4;
+width = 4;
+totalmodel  = new_files_info_total();
+<span class="keyword">for</span> k = 1:length(len)
+    totalmodel(k).name=sprintf(<span class="string">'../S_parameters_sim/width/W%d/L%dW%dS%d.csv'</span>,width,len(k),width,space);
+    totalmodel(k).length = len(k)*1e-6;
+    totalmodel(k).width = width*1e-6;
+    totalmodel(k).space = space*1e-6;
+    totalmodel(k).len_pi =len_pi ;
+    totalmodel(k).num_pi = ceil(totalmodel(k).length/totalmodel(k).len_pi-1e-6);
+    totalmodel(k) = model_total( totalmodel(k));
+    totalmodel(k) = totalmodel_err( totalmodel(k));
+<span class="keyword">end</span>
+plot_RLGC_double(totalmodel(1).freq,totalmodel(1).RLGC_sim,totalmodel(1).RLGC_fit,<span class="keyword">...</span>
+                 {<span class="string">'sim'</span>,<span class="string">'model'</span>},<span class="string">'RLGC: sim vs model'</span>,{<span class="string">'-r'</span>,<span class="string">'--b'</span>});
+
+RLGC_sim_unit  = [totalmodel.RLGC_sim];
+gamma_sim = [totalmodel.gamma_sim];
+alpha_sim = real(gamma_sim);
+beta_sim = imag(gamma_sim);
+</pre><img vspace="5" hspace="5" src="cpw_total_length_01.png" style="width:560px;height:420px;" alt=""> <h2 id="2">RLGC unit length vs length</h2><pre class="codeinput">freq_ind = [20 40 100 200];
+str_title = {<span class="string">'R'</span>,<span class="string">'L'</span>,<span class="string">'G'</span>,<span class="string">'C'</span>};
+str_label = {<span class="string">'Resistance [\Omega/m]'</span>,<span class="string">'Inductance [H/m]'</span>,<span class="keyword">...</span>
+             <span class="string">'Conductance [S/m]'</span>,<span class="string">'Capacitance [F/m]'</span>};
+str_lengend = cell(1,4);
+<span class="keyword">for</span> m =1:length(freq_ind)
+    str_lengend{m} = [<span class="string">'freq='</span>,num2str(freq_ind(m)/2),<span class="string">'GHz'</span>];
+<span class="keyword">end</span>
+<span class="keyword">for</span> m =1:4
+    figure
+    hold <span class="string">on</span>
+    plot(len,RLGC_sim_unit(freq_ind ,m:4:end),<span class="string">'-*'</span>);
+    title([<span class="string">'unit length '</span>,str_title{m},<span class="string">' vs length'</span>]);
+    xlabel(<span class="string">'length'</span>);
+    ylabel(str_label{m});
+    legend(str_lengend);
+    grid <span class="string">on</span>
+    grid <span class="string">minor</span>
+    hold <span class="string">off</span>
+<span class="keyword">end</span>
+</pre><img vspace="5" hspace="5" src="cpw_total_length_02.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_length_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_length_04.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_length_05.png" style="width:560px;height:420px;" alt=""> <h2 id="3">alpha beta VS length under different frequency</h2><pre class="codeinput">figure
+plot(len,alpha_sim(freq_ind,:),<span class="string">'-o'</span>);
+title(<span class="string">'alpha'</span>);
+xlabel(<span class="string">'length'</span>);
+ylabel(<span class="string">'alpha'</span>);
+legend(str_lengend);
+grid <span class="string">on</span>
+grid <span class="string">minor</span>
+
+figure
+plot(len,beta_sim(freq_ind,:),<span class="string">'-s'</span>);
+title(<span class="string">'beta'</span>);
+xlabel(<span class="string">'length'</span>);
+ylabel(<span class="string">'beta'</span>);
+legend(str_lengend);
+grid <span class="string">on</span>
+grid <span class="string">minor</span>
+</pre><img vspace="5" hspace="5" src="cpw_total_length_06.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_length_07.png" style="width:560px;height:420px;" alt=""> <h2 id="4">consider the port</h2><pre class="codeinput">freq_ind = 20:20:200;
+<span class="keyword">for</span> m =1:length(freq_ind)
+    str_lengend{m} = [<span class="string">'freq='</span>,num2str(freq_ind(m)/2),<span class="string">'GHz'</span>];
+<span class="keyword">end</span>
+<span class="keyword">for</span> m =1:2
+    figure
+    hold <span class="string">on</span>
+    plot(1./len,RLGC_sim_unit(freq_ind ,m:4:end),<span class="string">'-*'</span>);
+    title([<span class="string">'unit length '</span>,str_title{m},<span class="string">' vs 1/length'</span>]);
+    xlabel(<span class="string">'1/length(um)'</span>);
+    ylabel(str_label{m});
+    legend(str_lengend);
+    grid <span class="string">on</span>
+    grid <span class="string">minor</span>
+    hold <span class="string">off</span>
+<span class="keyword">end</span>
+</pre><img vspace="5" hspace="5" src="cpw_total_length_08.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_total_length_09.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2016b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+%% 不考虑分端口效应
+clear;close all
+dbstop if error;
+len = [150,200,250,300,350,400,450,500,600];%W ==5
+len_pi = 12.5*1e-6;
+space = 4;
+width = 4;
+totalmodel  = new_files_info_total();
+for k = 1:length(len)
+    totalmodel(k).name=sprintf('../S_parameters_sim/width/W%d/L%dW%dS%d.csv',width,len(k),width,space);
+    totalmodel(k).length = len(k)*1e-6;
+    totalmodel(k).width = width*1e-6;
+    totalmodel(k).space = space*1e-6;
+    totalmodel(k).len_pi =len_pi ;
+    totalmodel(k).num_pi = ceil(totalmodel(k).length/totalmodel(k).len_pi-1e-6);
+    totalmodel(k) = model_total( totalmodel(k));
+    totalmodel(k) = totalmodel_err( totalmodel(k));
+end
+plot_RLGC_double(totalmodel(1).freq,totalmodel(1).RLGC_sim,totalmodel(1).RLGC_fit,...
+                 {'sim','model'},'RLGC: sim vs model',{'-r','REPLACE_WITH_DASH_DASHb'});
+
+RLGC_sim_unit  = [totalmodel.RLGC_sim];
+gamma_sim = [totalmodel.gamma_sim];
+alpha_sim = real(gamma_sim);
+beta_sim = imag(gamma_sim);
+%% RLGC unit length vs length
+freq_ind = [20 40 100 200];
+str_title = {'R','L','G','C'};
+str_label = {'Resistance [\Omega/m]','Inductance [H/m]',...
+             'Conductance [S/m]','Capacitance [F/m]'};
+str_lengend = cell(1,4);
+for m =1:length(freq_ind)
+    str_lengend{m} = ['freq=',num2str(freq_ind(m)/2),'GHz'];
+end
+for m =1:4
+    figure
+    hold on    
+    plot(len,RLGC_sim_unit(freq_ind ,m:4:end),'-*');    
+    title(['unit length ',str_title{m},' vs length']);
+    xlabel('length');
+    ylabel(str_label{m});
+    legend(str_lengend);
+    grid on
+    grid minor
+    hold off
+end
+%% alpha beta VS length under different frequency
+figure
+plot(len,alpha_sim(freq_ind,:),'-o');
+title('alpha');
+xlabel('length');
+ylabel('alpha');
+legend(str_lengend);
+grid on
+grid minor
+
+figure
+plot(len,beta_sim(freq_ind,:),'-s');
+title('beta');
+xlabel('length');
+ylabel('beta');
+legend(str_lengend);
+grid on
+grid minor
+%% consider the port
+freq_ind = 20:20:200;
+for m =1:length(freq_ind)
+    str_lengend{m} = ['freq=',num2str(freq_ind(m)/2),'GHz'];
+end
+for m =1:2
+    figure
+    hold on
+    plot(1./len,RLGC_sim_unit(freq_ind ,m:4:end),'-*');
+    title(['unit length ',str_title{m},' vs 1/length']);
+    xlabel('1/length(um)');
+    ylabel(str_label{m});
+    legend(str_lengend);
+    grid on
+    grid minor
+    hold off
+end
+##### SOURCE END #####
+--></body></html>

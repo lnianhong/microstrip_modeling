@@ -1,0 +1,1443 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/coupledwires.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.19 13/08/08 09:33:55
+***************************************************************************
+*
+*>  IBM BiCMOS-8HP "coupledwires" transmission line
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2013 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+simulator lang=spectre 
+subckt coupledwires (va1 va2 vb1 vb2 vshield)
+parameters 
+* +      Rtot=0.266493 
+* +      Ctot= 1.10228e-14
+* +      Cctot=4.05613e-15
+* +      Ltot=3.2568e-11
+* +      DA1=0.286219
+* +      DA2=0.286219
+* +      DA3=0.286219
+* +      DK1=-0.0505412
+* +      DK2=0.376673
+* +      DK3=0.376673
+* +      K= 0.268994
+* +      delta_R1=0.570718
+* +      delta_R2=1.64317
+* +      delta_R3= 5.46175
+* +      delta_L1=8.61925e-12
+* +      delta_L2=1.85467e-12
+* +      delta_L3=6.2462e-13
+* ===============================================
+* Description of BiCMOS8HP coupledwires model
+*
+* The basic coupled microstrip T-line structure is
+* a pair of metal signal wires above a metallic bottom shield,
+* with optional side shielding.
+* 
+* This model describes the frequency dependent impedance,
+* attenuation and phase shift in a high bandwidth.  The
+* model is implemented in multi-segment RLC filter networks
+* and dependent sources and is therefore passive by construction.
+* The model works both in time and frequency domains in all
+* simulation analysis types (dc, ac, sp, pss ...).
+*
+* The model considers the standard copper line cheesing process,
+* and assumes super cheesing for Wg > 50[um].
+* ===============================================
+* coupledwires input parameters
+* Description of input parameters
+*
+* bwmax       --> Maximum signal bandwidth used, in GHz.
+* l           --> Length of the singlewire signal line, in meters.
+* w           --> Width of the signal line, in meters.
+* d           --> distance between the signal wires.
+* s           --> Seperation between signal wire and side shielding, in meters.
+* shieldsads  --> Side shielding parameter; OFF = 0, ON = 1.
+* patternfill --> 0 disables pattern fill modeling, 1 enables it.
+* layerads    --> Metal layer of the single signal wire:  See table immediately below.
+* overads     --> Metal layer of the bottom shield:  See table immmediately below.
+* customcap   --> 0 disables custom capacitance, 1 enables it.
+* C_cust      --> User provided capacitance per unit length.
+* Cc_cust     --> User provided coupled capacitance per unit length.
+* dtemp       --> Difference between silicon surface and metal layers
+*                 (assumes all metal layers at same temperature)
+*
+*             wireopt
+*  5AM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 AM=7
+*              211   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  6AM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 AM=7
+*              311   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  7AM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 AM=7
+*              411   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 XXXX
+*                 ---------------------------------------------------
+*  6DM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 E1=8 MA=9
+*              213   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  7DM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 MA=9
+*              313   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  8DM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 MA=9
+*              413   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*
+* coupledwires default input parameters
++ bwmax       = 200
++ l           = 100.0e-6
++ w           = 4.0e-6
++ d           = 10.0e-06
++ s           = 6.0e-6
++ shieldsads  = 0
++ patternfill = 1
++ layerads    = 6
++ overads     = 5
++ customcap   = 0
++ C_cust      = 1.0e-10
++ Cc_cust     = 1.0e-10
++ dtemp       = 0
+* ===============================================
+* Cross-sections of coupled transmission line
+*
+* Coupled transmission line without side shielding
+* ===============================================
+*
+*                 W              W
+*             <-------->     <-------->
+*              --------       --------  ^
+*             |        |  d  |        | |
+*             | signal |<--->| signal | | th
+*             |        |     |        | |
+*              --------       --------  V
+*                                       ^
+*                                       | h
+*                                       V
+*     -----------------------------------------  ^
+*    |                                         | |
+*    |              bottom shield              | | th_g
+*    |                                         | |
+*     -----------------------------------------  V
+*    <----------------------------------------->
+*                         Wg
+*
+*
+* Coupled transmission line with side shielding
+* ===============================================
+*
+*          Ws           W              W            Ws
+*       <------>    <-------->     <-------->    <------>
+*        ------      --------       ________      ------  ^
+*       | side |  s |        |  d  |        |    | side | |
+*       |shield|<-->| signal |<--->| signal |    |shield| | th  
+*       |      |    |        |     |        |    |      | |
+*        ------      --------       --------      ------  V
+*                                                         ^
+*                                                         | h
+*                                                         V
+*        -----------------------------------------------  ^
+*       |                                               | |
+*       |                bottom shield                  | | th_g
+*       |                                               | |
+*        -----------------------------------------------  V
+*       <----------------------------------------------->
+*                               Wg
+*
+* ===============================================
+* coupledwires model constants
++ ratio = 3.14159
++ E0 = 8.8542e-12
++ denfill = 0.45
++ Tref = 25.0
+*
+* ===============================================
+* Determine mask biases in microns:
+*+  dlw = ( (layerads==2)*delm2+(layerads==3)*delm3+(layerads==4)*delm4+(layerads==5)*delmq+(layerads==6)*delly+(layerads==7)*delam +(layerads==8)*dele1+(layerads==9)*delma )*1.0e6
+* Conversion of Meters to Microns for input parameters
++ l_MICRONS = l*1.0e+6
++ w_MICRONS = w*1.0e+6
++ d_MICRONS = d*1.0e+6
++ s_MICRONS = s*1.0e+6
+* ===============================================
+* Begin metal layer stack
+*
+* Metal Option: wireopt = 211 (5AM)
++ am5    = wireopt==211
++ m1bot1 = 0.95e-06
++ m1top1 = m1bot1 + m1t
++ m2bot1 = m1top1 + m1m2t
++ m2top1 = m2bot1 + m2t
++ mqbot1 = m2top1 + m2mqt
++ mqtop1 = mqbot1 + mqt
++ lybot1 = mqtop1 + mqlyt
++ lytop1 = lybot1 + lyt
++ ambot1 = lytop1 + lyamt
++ amtop1 = ambot1 + amt
+*
+* Metal Option: wireopt = 311 (6AM)
++ am6    = wireopt==311
++ m1bot2 = 0.95e-06
++ m1top2 = m1bot2 + m1t
++ m2bot2 = m1top2 + m1m2t
++ m2top2 = m2bot2 + m2t
++ m3bot2 = m2top2 + m2m3t
++ m3top2 = m3bot2 + m3t
++ mqbot2 = m3top2 + m3mqt
++ mqtop2 = mqbot2 + mqt
++ lybot2 = mqtop2 + mqlyt
++ lytop2 = lybot2 + lyt
++ ambot2 = lytop2 + lyamt
++ amtop2 = ambot2 + amt
+*
+* Metal Option: wireopt = 411 (7AM)
++ am7    = wireopt==411
++ m1bot3 = 0.95e-06
++ m1top3 = m1bot3 + m1t
++ m2bot3 = m1top3 + m1m2t
++ m2top3 = m2bot3 + m2t
++ m3bot3 = m2top3 + m2m3t
++ m3top3 = m3bot3 + m3t
++ m4bot3 = m3top3 + m3m4t
++ m4top3 = m4bot3 + m4t
++ mqbot3 = m4top3 + m4mqt
++ mqtop3 = mqbot3 + mqt
++ lybot3 = mqtop3 + mqlyt
++ lytop3 = lybot3 + lyt
++ ambot3 = lytop3 + lyamt
++ amtop3 = ambot3 + amt
+*
+* Metal Option: wireopt = 213 (6DM)
++ dm6    = wireopt==213
++ m1bot4 = 0.95e-06
++ m1top4 = m1bot4 + m1t
++ m2bot4 = m1top4 + m1m2t
++ m2top4 = m2bot4 + m2t
++ mqbot4 = m2top4 + m2mqt
++ mqtop4 = mqbot4 + mqt
++ lybot4 = mqtop4 + mqlyt
++ lytop4 = lybot4 + lyt
++ e1bot4 = lytop4 + lye1t
++ e1top4 = e1bot4 + e1t
++ mabot4 = e1top4 + e1mat
++ matop4 = mabot4 + mat
+*
+* Metal Option: wireopt = 313 (7DM)
++ dm7    = wireopt==313
++ m1bot5 = 0.95e-06
++ m1top5 = m1bot5 + m1t
++ m2bot5 = m1top5 + m1m2t
++ m2top5 = m2bot5 + m2t
++ m3bot5 = m2top5 + m2m3t
++ m3top5 = m3bot5 + m3t
++ mqbot5 = m3top5 + m3mqt
++ mqtop5 = mqbot5 + mqt
++ lybot5 = mqtop5 + mqlyt
++ lytop5 = lybot5 + lyt
++ e1bot5 = lytop5 + lye1t
++ e1top5 = e1bot5 + e1t
++ mabot5 = e1top5 + e1mat
++ matop5 = mabot5 + mat
+*
+* Metal Option: wireopt = 413 (8DM)
++ dm8    = wireopt==413
++ m1bot6 = 0.95e-06
++ m1top6 = m1bot6 + m1t
++ m2bot6 = m1top6 + m1m2t
++ m2top6 = m2bot6 + m2t
++ m3bot6 = m2top6 + m2m3t
++ m3top6 = m3bot6 + m3t
++ m4bot6 = m3top6 + m3m4t
++ m4top6 = m4bot6 + m4t
++ mqbot6 = m4top6 + m4mqt
++ mqtop6 = mqbot6 + mqt
++ lybot6 = mqtop6 + mqlyt
++ lytop6 = lybot6 + lyt
++ e1bot6 = lytop6 + lye1t
++ e1top6 = e1bot6 + e1t
++ mabot6 = e1top6 + e1mat
++ matop6 = mabot6 + mat
+*
++ m1bot = m1bot1*am5 + m1bot2*am6 + m1bot3*am7 + m1bot4*dm6 + m1bot5*dm7 + m1bot6*dm8
++ m1top = m1top1*am5 + m1top2*am6 + m1top3*am7 + m1top4*dm6 + m1top5*dm7 + m1top6*dm8
++ m2bot = m2bot1*am5 + m2bot2*am6 + m2bot3*am7 + m2bot4*dm6 + m2bot5*dm7 + m2bot6*dm8
++ m2top = m2top1*am5 + m2top2*am6 + m2top3*am7 + m2top4*dm6 + m2top5*dm7 + m2top6*dm8
++ m3bot =    0.0*am5 + m3bot2*am6 + m3bot3*am7 +    0.0*dm6 + m3bot5*dm7 + m3bot6*dm8
++ m3top =    0.0*am5 + m3top2*am6 + m3top3*am7 +    0.0*dm6 + m3top5*dm7 + m3top6*dm8
++ m4bot =    0.0*am5 +    0.0*am6 + m4bot3*am7 +    0.0*dm6 +	 0.0*dm7 + m4bot6*dm8
++ m4top =    0.0*am5 +    0.0*am6 + m4top3*am7 +    0.0*dm6 +	 0.0*dm7 + m4top6*dm8
++ mqbot = mqbot1*am5 + mqbot2*am6 + mqbot3*am7 + mqbot4*dm6 + mqbot5*dm7 + mqbot6*dm8
++ mqtop = mqtop1*am5 + mqtop2*am6 + mqtop3*am7 + mqtop4*dm6 + mqtop5*dm7 + mqtop6*dm8
++ lybot = lybot1*am5 + lybot2*am6 + lybot3*am7 + lybot4*dm6 + lybot5*dm7 + lybot6*dm8
++ lytop = lytop1*am5 + lytop2*am6 + lytop3*am7 + lytop4*dm6 + lytop5*dm7 + lytop6*dm8
++ ambot = ambot1*am5 + ambot2*am6 + ambot3*am7
++ amtop = amtop1*am5 + amtop2*am6 + amtop3*am7
++ e1bot =                                        e1bot4*dm6 + e1bot5*dm7 + e1bot6*dm8
++ e1top =                                        e1top4*dm6 + e1top5*dm7 + e1top6*dm8
++ mabot =                                        mabot4*dm6 + mabot5*dm7 + mabot6*dm8
++ matop =                                        matop4*dm6 + matop5*dm7 + matop6*dm8
+*
+* End metal layer stack
+* ================================================
+* ================================================
+* Determine the height of the signal layer above the bottom shield (h), 
+* the thickness of the signal layer (th), and the thickness of the 
+* shield (th_g).
+*
++ layer_bot = m2bot*(layerads == 2) + m3bot*(layerads == 3) + m4bot*(layerads == 4) + mqbot*(layerads == 5) + lybot*(layerads == 6) + ambot*(layerads == 7)  + e1bot*(layerads == 8) + mabot*(layerads == 9)
++ layer_top = m2top*(layerads == 2) + m3top*(layerads == 3) + m4top*(layerads == 4) + mqtop*(layerads == 5) + lytop*(layerads == 6) + amtop*(layerads == 7) + e1top*(layerads == 8) + matop*(layerads == 9)
++ over_bot = m1bot*(overads == 1) + m2bot*(overads == 2) + m3bot*(overads == 3) + m4bot*(overads == 4) + mqbot*(overads == 5) + lybot*(overads == 6) + e1bot*(overads == 8)
++ over_top = m1top*(overads == 1) + m2top*(overads == 2) + m3top*(overads == 3) + m4top*(overads == 4) + mqtop*(overads == 5) + lytop*(overads == 6) + e1top*(overads == 8)
+*
++ h_MICRONS = (layer_bot - over_top)*1e+6
++ th_MICRONS = (layer_top - layer_bot)*1e+6
++ th_g_MICRONS = (over_top - over_bot)*1e+6
+* ===============================================
+* ===============================================
+* Determine the effective dielectric constants and metal fill parameters.
+*
++ m1_eps_side = 4.078
++ m2_eps_side = 3.6
++ m3_eps_side = 3.6
++ m4_eps_side = 3.6
++ mq_eps_side = 3.6
++ ly_eps_side = 4.1
++ am_eps_side = 4.1
++ e1_eps_side = 4.1
++ ma_eps_side = 4.1
+*	  
++ m1_eps_side_over = 4.47*am5 + 4.47*am6 + 4.47*am7 + 4.47*dm6 + 4.47*dm7 + 4.47*dm8
++ m2_eps_side_over = 4.59*am5 + 4.47*am6 + 4.47*am7 + 4.59*dm6 + 4.47*dm7 + 4.47*dm8
++ m3_eps_side_over = 4.47*am5 + 4.59*am6 + 4.47*am7 + 4.47*dm6 + 4.59*dm7 + 4.47*dm8
++ m4_eps_side_over = 4.59*am5 + 4.59*am6 + 4.59*am7 + 4.59*dm6 + 4.59*dm7 + 4.59*dm8
++ mq_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ly_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.14*dm6 + 4.14*dm7 + 4.14*dm8
++ am_eps_side_over = 3.81*am5 + 3.81*am6 + 3.81*am7					
++ e1_eps_side_over =                                  4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ma_eps_side_over =                                  3.81*dm6 + 3.81*dm7 + 3.81*dm8
+*
++ m1_bot_4eps = 0.2267*am5 + 0.2267*am6 + 0.2267*am7 + 0.2267*dm6 + 0.2267*dm7 + 0.2267*dm8
++ m1_top_4eps = 0.3035*am5 + 0.3035*am6 + 0.3035*am7 + 0.3035*dm6 + 0.3035*dm7 + 0.3035*dm8
++ m2_bot_4eps = 0.3858*am5 + 0.3858*am6 + 0.3858*am7 + 0.3858*dm6 + 0.3858*dm7 + 0.3858*dm8
++ m2_top_4eps = 0.4747*am5 + 0.4747*am6 + 0.4747*am7 + 0.4747*dm6 + 0.4747*dm7 + 0.4747*dm8
++ m3_bot_4eps = 0.0000*am5 + 0.5571*am6 + 0.5571*am7 + 0.0000*dm6 + 0.5571*dm7 + 0.5571*dm8
++ m3_top_4eps = 0.0000*am5 + 0.6460*am6 + 0.6460*am7 + 0.0000*dm6 + 0.6460*dm7 + 0.6460*dm8
++ m4_bot_4eps = 0.0000*am5 + 0.0000*am6 + 0.7283*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.7283*dm8
++ m4_top_4eps = 0.0000*am5 + 0.0000*am6 + 0.8172*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.8172*dm8
++ mq_bot_4eps = 0.6404*am5 + 0.8117*am6 + 0.9829*am7 + 0.6404*dm6 + 0.8117*dm7 + 0.9829*dm8
++ mq_top_4eps = 0.7932*am5 + 0.9644*am6 + 1.1357*am7 + 0.7932*dm6 + 0.9644*dm7 + 1.1357*dm8
++ ly_bot_4eps = 1.7861*am5 + 1.9574*am6 + 2.1286*am7 + 1.7861*dm6 + 1.9574*dm7 + 2.1286*dm8
++ ly_top_4eps = 2.0910*am5 + 2.2622*am6 + 2.4335*am7 + 2.0910*dm6 + 2.2622*dm7 + 2.4335*dm8
++ am_bot_4eps = 3.0809*am5 + 3.2521*am6 + 3.4234*am7
++ am_top_4eps = 4.0456*am5 + 4.2168*am6 + 4.3880*am7
++ e1_bot_4eps =                                        3.0809*dm6 + 3.2521*dm7 + 3.4234*dm8
++ e1_top_4eps =                                        3.8055*dm6 + 3.9768*dm7 + 4.1480*dm8
++ ma_bot_4eps =                                        4.7911*dm6 + 4.9624*dm7 + 5.1336*dm8
++ ma_top_4eps =                                        5.7558*dm6 + 5.9271*dm7 + 6.0983*dm8
+*
++ m1_bot_fill = 0.00*am5 + 0.00*am6 + 0.00*am7 + 0.00*dm6 + 0.00*dm7 + 0.00*dm8
++ m1_top_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_bot_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_top_fill = 0.61*am5 + 0.61*am6 + 0.61*am7 + 0.61*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_bot_fill = 0.00*am5 + 0.61*am6 + 0.61*am7 + 0.00*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_top_fill = 0.00*am5 + 0.93*am6 + 0.93*am7 + 0.00*dm6 + 0.93*dm7 + 0.93*dm8
++ m4_bot_fill = 0.00*am5 + 0.00*am6 + 0.93*am7 + 0.00*dm6 + 0.00*dm7 + 0.93*dm8
++ m4_top_fill = 0.00*am5 + 0.00*am6 + 1.25*am7 + 0.00*dm6 + 0.00*dm7 + 1.25*dm8
++ mq_bot_fill = 0.61*am5 + 0.93*am6 + 1.25*am7 + 0.61*dm6 + 0.93*dm7 + 1.25*dm8
++ mq_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ am_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ am_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ e1_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ e1_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8	 
++ ma_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
+*
++ layer_bot_4eps = m2_bot_4eps*(layerads == 2) + m3_bot_4eps*(layerads == 3) + m4_bot_4eps*(layerads == 4) + mq_bot_4eps*(layerads == 5) + ly_bot_4eps*(layerads == 6) + am_bot_4eps*(layerads == 7) + e1_bot_4eps*(layerads == 8) + ma_bot_4eps*(layerads == 9)   
++ over_top_4eps = m1_top_4eps*(overads == 1) + m2_top_4eps*(overads == 2) + m3_top_4eps*(overads == 3) + m4_top_4eps*(overads == 4) + mq_top_4eps*(overads == 5) + ly_top_4eps*(overads == 6) + e1_top_4eps*(overads == 8)    
+*
++ h_by_eps = layer_bot_4eps - over_top_4eps
+*
++ Epsilon_r = h_MICRONS/h_by_eps
++ eps_side = m1_eps_side*(layerads == 1) + m2_eps_side*(layerads == 2) + m3_eps_side*(layerads == 3) + m4_eps_side*(layerads == 4) + mq_eps_side*(layerads == 5) + ly_eps_side*(layerads == 6) + am_eps_side*(layerads == 7) + e1_eps_side*(layerads == 8) + ma_eps_side*(layerads == 9) 
++ eps_side_over = m1_eps_side_over*(layerads == 1) + m2_eps_side_over*(layerads == 2) + m3_eps_side_over*(layerads == 3) + m4_eps_side_over*(layerads == 4) + mq_eps_side_over*(layerads == 5) + ly_eps_side_over*(layerads == 6) + am_eps_side_over*(layerads == 7) + e1_eps_side_over*(layerads == 8) + ma_eps_side_over*(layerads == 9) 
++ Epsilon_r_side = eps_side
++ Epsilon_r_side_over = eps_side_over
+*
++ layer_bot_fill = m1_bot_fill*(layerads == 1) + m2_bot_fill*(layerads == 2) + m3_bot_fill*(layerads == 3) + m4_bot_fill*(layerads == 4) + mq_bot_fill*(layerads == 5) + ly_bot_fill*(layerads == 6) + am_bot_fill*(layerads == 7) + e1_bot_fill*(layerads == 8) + ma_bot_fill*(layerads == 9)   
++ over_top_fill = m1_top_fill*(overads == 1) + m2_top_fill*(overads == 2) + m3_top_fill*(overads == 3) + m4_top_fill*(overads == 4) + mq_top_fill*(overads == 5) + ly_top_fill*(overads == 6) + am_top_fill*(overads == 7) + e1_top_fill*(overads == 8) + ma_top_fill*(overads == 9)  
+*
++ h_fill = layer_bot_fill - over_top_fill
+*
++ wfill = 0.9*(layerads == 2 || layerads == 3 || layerads == 4) + 1.2*(layerads == 5) + 0.0*(layerads == 6) + 0.0*(layerads == 7) + 0.0*(layerads == 8)+ 0.0*(layerads == 9)
++ sfill = 0.3*(layerads == 2 || layerads == 3 || layerads == 4) + 0.4*(layerads == 5) + -1.0*(layerads == 6) + -1.0*(layerads == 7) + -1.0*(layerads == 8) + -1.0*(layerads == 9)
++ sf2sh = 0.4*(layerads == 2 || layerads == 3 || layerads == 4) + 0.8*(layerads == 5) + -1.0*(layerads == 6) + -1.0*(layerads == 7) + -1.0*(layerads == 8) + -1.0*(layerads == 9)
++ denfillc = (denfill*(wfill - sfill)/(wfill*(layerads == 2 || layerads == 3 || layerads == 4 || layerads == 5) + -1.0*(layerads == 1 || layerads == 6 || layerads == 7 || layerads == 8 || layerads == 9))*(layerads == 2 || layerads == 3 || layerads == 4 || layerads == 5)) + 0.0*(layerads == 6 || layerads == 7 || layerads == 8 || layerads == 9)
+*
+* ===============================================
+* ===============================================
+* Calculation of feedback parameters, including wire widths.
+*
++ ELB = -0.0115*(layerads == 1) + 0.00*(layerads == 2 || layerads == 3 || layerads == 4) + -0.022*(layerads == 5) + 0.0000*(layerads == 6) + 0.00*(layerads == 7) + 0.00*(layerads == 8) + 0.00*(layerads == 9)
++ PLB =  0.0000*(layerads == 1) + 0.01*(layerads == 2 || layerads == 3 || layerads == 4) +  0.010*(layerads == 5) + 0.0625*(layerads == 6) + 0.00*(layerads == 8) + (-1*0.08)*(((layerads == 7) + (layerads == 9))*(s_MICRONS >= 12.5)) + (-1*(((0.028*s_MICRONS)-0.19)/2))*(((layerads == 7) + (layerads == 9))*(s_MICRONS < 12.5))
++ Wo = 1.2*(layerads == 1) + 1.8*(layerads == 2 || layerads == 3 || layerads == 4) + 2.4*(layerads == 5) + 0*(layerads == 6) + 0*(layerads == 7) + 0*(layerads == 8) + 0*(layerads == 9)
++ Wmin = 0.16*(layerads == 1) + 0.20*(layerads == 2 || layerads == 3 || layerads == 4) + 0.40*(layerads == 5) + 3.88*(layerads == 6) + 3.88*(layerads == 7) + 3.88*(layerads == 8) + 4.24*(layerads == 9)
++ Rsquare = m1rs*(layerads == 1) + m2rs*(layerads == 2) + m3rs*(layerads == 3) + m4rs*(layerads == 4) + mqrs*(layerads == 5) + lyrs*(layerads == 6) + amrs*(layerads == 7) + e1rs*(layerads == 8) + mars*(layerads == 9)
++ TCR = tm1rs*(layerads == 1) + tm2rs*(layerads == 2) + tm3rs*(layerads == 3) + tm4rs*(layerads == 4) + tmqrs*(layerads == 5) + tlyrs*(layerads == 6) + tamrs*(layerads == 7) + te1rs*(layerads == 8) + tmars*(layerads == 9)
+*
++ ELB_g = -0.0115*(overads == 1) + 0.00*(overads == 2 || overads == 3 || overads == 4) + -0.022*(overads == 5) + 0.0000*(overads == 6) + 0.00*(overads == 7) + 0.00*(overads == 8) + 0.00*(overads == 9)
++ PLB_g =  0.0000*(overads == 1) + 0.01*(overads == 2 || overads == 3 || overads == 4) +  0.010*(overads == 5) + 0.0625*(overads == 6) + 0.00*(overads == 8) + (-1*0.08)*(((overads == 7) + (overads == 9))*(s_MICRONS >= 12.5)) + (-1*(((0.028*s_MICRONS)-0.19)/2))*(((overads == 7) + (overads == 9))*(s_MICRONS < 12.5))
++ Wo_g = 1.2*(overads == 1) + 1.8*(overads == 2 || overads == 3 || overads == 4) + 2.4*(overads == 5) + 0*(overads == 6) + 0*(overads == 7) + 0*(overads == 8) + 0*(overads == 9)
++ Wmin_g = 0.16*(overads == 1) + 0.20*(overads == 2 || overads == 3 || overads == 4) + 0.40*(overads == 5) + 3.88*(overads == 6) + 3.88*(overads == 7) + 3.88*(overads == 8) + 4.24*(overads == 9)
++ Rsquare_g = m1rs*(overads == 1) + m2rs*(overads == 2) + m3rs*(overads == 3) + m4rs*(overads == 4) + mqrs*(overads == 5) + lyrs*(overads == 6) + amrs*(overads == 7) + e1rs*(overads == 8) + mars*(overads == 9)
++ TCR_g = tm1rs*(overads == 1) + tm2rs*(overads == 2) + tm3rs*(overads == 3) + tm4rs*(overads == 4) + tmqrs*(overads == 5) + tlyrs*(overads == 6) + tamrs*(overads == 7) + te1rs*(overads == 8) + tmars*(overads == 9)
+*
++ Kslot = 0.5
++ MxPlaneLim = 50
+*
++ ws = Wmin
+*
++ R_sh = (1e15)*(shieldsads == 0) + (l_MICRONS*Rsquare/(ws + 2*ELB)*(1 + TCR*(temp + dtemp - Tref)))*(shieldsads == 1)
++ wg_MICRONS_TEMP = (w_MICRONS + 2*(h_MICRONS + th_MICRONS))*(shieldsads == 0) + (w_MICRONS + 2*(s_MICRONS + ws))*(shieldsads == 1)
+//+ wgld       = ( (overads==1)*delm1+(overads==2)*delm2+(overads==3)*delm3+(overads==4)*delm4+(overads==5)*delmq+(overads==6)*delly+(overads==8)*dele1 )*1.0e6
++ wg_MICRONS = wg_MICRONS_TEMP + w_MICRONS + d_MICRONS //+ wgld
+*
++ w_c = w_MICRONS + 2*ELB + 2*PLB
++ wg_c = wg_MICRONS + 2*ELB_g + 2*PLB_g
+*
++ Wlim = 1.4*(layerads == 1) + 1.4*(layerads == 2 || layerads == 3 || layerads == 4) + 2.4*(layerads == 5) + 0*(layerads == 6) + 0*(layerads == 7) + 0*(layerads == 8) + 0*(layerads == 9)
++ Cheese = 0.7*(layerads == 1) + 0.7*(layerads == 2 || layerads == 3 || layerads == 4) + 0.7*(layerads == 5) + 1*(layerads == 6) + 1*(layerads == 7) + 1*(layerads == 8) + 1*(layerads == 9)
++ superCheese = 0.52*(layerads == 1) + 0.52*(layerads == 2 || layerads == 3 || layerads == 4) + 0.53*(layerads == 5) + 1*(layerads == 6) + 1*(layerads == 7) + 1*(layerads == 8) + 1*(layerads == 9)
++ cheeseK =  (((Wlim != 0) || (w_MICRONS > Wo)) && (w_MICRONS > MxPlaneLim)) ? superCheese : Cheese 
++ delta_Whole_CHEESING = ((Wlim == 0) || (w_MICRONS <= Wo)) ? 0 : (cheeseK - 1)*(w_c - Wlim)
+*
++ Wlim_g = 1.4*(overads == 1) + 1.4*(overads == 2 || overads == 3 || overads == 4) + 2.4*(overads == 5) + 0*(overads == 6) + 0*(overads == 8)
++ Cheese_g = 0.7*(overads == 1) + 0.7*(overads == 2 || overads == 3 || overads == 4) + 0.7*(overads == 5) + 1*(overads == 6) + 1*(overads == 8)
++ superCheese_g = 0.52*(overads == 1) + 0.52*(overads == 2 || overads == 3 || overads == 4) + 0.53*(overads == 5) + 1*(overads == 6) + 1*(overads == 8) 
++ cheeseK_g =  (((Wlim_g != 0) || (wg_MICRONS > Wo)) && (wg_MICRONS > MxPlaneLim)) ? superCheese_g : Cheese_g 
++ delta_Whole_g_CHEESING = ((Wlim_g == 0) || (wg_MICRONS <= Wo_g)) ? 0 : (cheeseK_g - 1)*(wg_c - Wlim_g)
+*
++ delta_Whole = delta_Whole_CHEESING
++ delta_Whole_g = delta_Whole_g_CHEESING
+*
++ w_eff = w_c + delta_Whole
++ w_eff_g = wg_c + delta_Whole_g
++ Rpath = l_MICRONS*(Rsquare/w_eff)*(1 + TCR*(temp + dtemp - Tref))
++ R_g = l_MICRONS*(Rsquare_g/w_eff_g)*(1 + TCR_g*(temp + dtemp - Tref))
+*
++ Rret = R_g/(1 + 2*R_g/R_sh)
++ Rtot = Rpath + Rret
+*
+* End COMMON
+* ===============================================
+* ===============================================
+* Custom capacitance for coupled wires
+*
++ Ctot_cust = C_cust*l
++ Cctot_cust = Cc_cust*l
+* ===============================================
+* ===============================================
+* Capacitance calculation for coupled wires without side shielding
+*
++ Epsilon_r_ratio_NOSHIELD = 0.5*(Epsilon_r + Epsilon_r_side_over)/Epsilon_r_side
++ X21_NOSHIELD = 1.0467
++ X22_NOSHIELD = 0.9446
++ X23_NOSHIELD = 1.2070 
++ X24_NOSHIELD = 0.8498 
+* 
++ Y21_NOSHIELD = 1.0610
++ Y22_NOSHIELD = 0.4780
++ Y23_NOSHIELD = 0.8668
++ Y24_NOSHIELD = 0.8802 
+*
++ Y25_NOSHIELD = 1.2121*Epsilon_r_ratio_NOSHIELD
++ Y26_NOSHIELD = 1.4308 
++ Y27_NOSHIELD = 1.0293
++ Y28_NOSHIELD = 0.9771
+*    
++ alfa_NOSHIELD = 2*atan(0.5*d_MICRONS/h_MICRONS)
++ beta_NOSHIELD = pi/2 - alfa_NOSHIELD 
+*
++ Cpl_right_NOSHIELD_NOFILL_1 = E0*(X21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + X23_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Cpl_right_NOSHIELD_NOFILL_2 = E0*(X21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + X23_NOSHIELD*(2/pi)*log(0.5*d_MICRONS/h_MICRONS))
++ Cpl_right_NOSHIELD_NOFILL_3 = E0*(X21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X22_NOSHIELD*(1-cos(alfa_NOSHIELD))/(alfa_NOSHIELD-sin(alfa_NOSHIELD))*log(alfa_NOSHIELD/sin(alfa_NOSHIELD)))
++ Cpl_right_NOSHIELD_NOFILL = Cpl_right_NOSHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cpl_right_NOSHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cpl_right_NOSHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ C1_left_NOSHIELD_NOFILL = E0*(X21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + X23_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS)) 
++ ht_MICRONS = h_MICRONS + th_MICRONS
++ C2_left_NOSHIELD_NOFILL_1 = E0*X24_NOSHIELD*(2/(3*pi))*log(1 + 1.5*w_MICRONS/ht_MICRONS)
++ C2_left_NOSHIELD_NOFILL_2 = E0*X24_NOSHIELD*((2/(3*pi))*log(1 + 3*th_g_MICRONS/ht_MICRONS) + (0.5/pi)*log(1 + (w_MICRONS - 2*th_g_MICRONS)/(0.5*ht_MICRONS + 1.5*th_g_MICRONS)))
++ C2_left_NOSHIELD_NOFILL = C2_left_NOSHIELD_NOFILL_1*(w_MICRONS < 2*th_g_MICRONS) + C2_left_NOSHIELD_NOFILL_2*(w_MICRONS >= 2*th_g_MICRONS)
+*
++ Cpl_left_NOSHIELD_NOFILL =  C1_left_NOSHIELD_NOFILL + C2_left_NOSHIELD_NOFILL
+*
++ Cpl_NOSHIELD_NOFILL = (Cpl_right_NOSHIELD_NOFILL + Cpl_left_NOSHIELD_NOFILL)*Epsilon_r
+*
++ Co_right_NOSHIELD_NOFILL_1 = E0*(Y21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + Y22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + Y23_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Co_right_NOSHIELD_NOFILL_2 = E0*(Y21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + Y22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + Y23_NOSHIELD*(2/pi)*log(0.5*d_MICRONS/h_MICRONS))
++ Co_right_NOSHIELD_NOFILL_3 = E0*(Y21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + Y22_NOSHIELD*(1 - cos(alfa_NOSHIELD))/(alfa_NOSHIELD - sin(alfa_NOSHIELD))*log(alfa_NOSHIELD/sin(alfa_NOSHIELD)))
++ Co_right_NOSHIELD_NOFILL = Co_right_NOSHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Co_right_NOSHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Co_right_NOSHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ C1o_left_NOSHIELD_NOFILL = E0*(Y21_NOSHIELD*0.5*w_MICRONS/h_MICRONS + Y22_NOSHIELD*(2/(pi - 2))*log(0.5*pi) + Y23_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ C2o_left_NOSHIELD_NOFILL_1 = E0*Y24_NOSHIELD*(2/(3*pi))*log(1 + 1.5*w_MICRONS/ht_MICRONS)
++ C2o_left_NOSHIELD_NOFILL_2 = E0*Y24_NOSHIELD*((2/(3*pi))*log(1 + 3*th_g_MICRONS/ht_MICRONS) + (0.5/pi)*log(1 + (w_MICRONS - 2*th_g_MICRONS)/(0.5*ht_MICRONS + 1.5*th_g_MICRONS)))
++ C2o_left_NOSHIELD_NOFILL = C2o_left_NOSHIELD_NOFILL_1*(w_MICRONS < 2*th_g_MICRONS) + C2o_left_NOSHIELD_NOFILL_2*(w_MICRONS >= 2*th_g_MICRONS)
+*
++ Co_left_NOSHIELD_NOFILL = C1o_left_NOSHIELD_NOFILL + C2o_left_NOSHIELD_NOFILL
+*
++ Cc_NOSHIELD_NOFILL_1 = E0*(Y25_NOSHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y26_NOSHIELD*(1/(pi - 2))*log(0.5*pi))
++ Cc_NOSHIELD_NOFILL_2 = E0*(Y25_NOSHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y26_NOSHIELD*(1/(pi - 2))*log(0.5*pi) + Y27_NOSHIELD*(th_MICRONS + h_MICRONS - 0.5*d_MICRONS )/d_MICRONS)
++ Cc_NOSHIELD_NOFILL_3 = E0*(Y25_NOSHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y26_NOSHIELD*(1/(pi - 2))*log(0.5*pi) + Y27_NOSHIELD*th_MICRONS/d_MICRONS + Y28_NOSHIELD*0.5*(1 - cos(beta_NOSHIELD))/(beta_NOSHIELD - sin(beta_NOSHIELD))*log(beta_NOSHIELD/sin(beta_NOSHIELD)))
++ Cc_NOSHIELD_NOFILL_TEMP1 = Cc_NOSHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cc_NOSHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cc_NOSHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ Co_NOSHIELD_NOFILL = (Co_right_NOSHIELD_NOFILL + Co_left_NOSHIELD_NOFILL)*Epsilon_r + 2*Cc_NOSHIELD_NOFILL_TEMP1*Epsilon_r_side 
+*
++ Cc0_NOSHIELD_NOFILL = Cc_NOSHIELD_NOFILL_TEMP1
++ Cc_NOSHIELD_NOFILL_TEMP2 = 0.5*(Co_NOSHIELD_NOFILL - Cpl_NOSHIELD_NOFILL)
++ Cc_NOSHIELD_NOFILL = Cc_NOSHIELD_NOFILL_TEMP1*(Cc_NOSHIELD_NOFILL_TEMP2 < 0) + Cc_NOSHIELD_NOFILL_TEMP2*(Cc_NOSHIELD_NOFILL_TEMP2 >= 0)
+*
++ Ctot_NOSHIELD_NOFILL = Cpl_NOSHIELD_NOFILL*l
++ Cctot_NOSHIELD_NOFILL = Cc_NOSHIELD_NOFILL*l
++ Ctot_NOFILL_NOSHIELD = Ctot_NOSHIELD_NOFILL
++ Cctot_NOFILL_NOSHIELD = Cctot_NOSHIELD_NOFILL
+*
+* Capacitance update due to Pattern Fill
++ coefill1 = (1 - denfill) + denfill*h_MICRONS/(h_MICRONS - h_fill)
++ coefill2 = (1 - denfill) + denfill*h_MICRONS/(h_MICRONS - h_fill - denfill*th_MICRONS)
++ C1_NOSHIELD_FILL = C1_left_NOSHIELD_NOFILL*coefill1
++ C2_NOSHIELD_FILL = C2_left_NOSHIELD_NOFILL*coefill2
++ Cpl_left_NOSHIELD_FILL = C1_NOSHIELD_FILL + C2_NOSHIELD_FILL 
++ Cpl_right_NOSHIELD_FILL = Cpl_right_NOSHIELD_NOFILL*coefill1 
++ Cpl_NOSHIELD_FILL = (Cpl_left_NOSHIELD_FILL + Cpl_right_NOSHIELD_FILL)*Epsilon_r
++ Ctot_NOSHIELD_FILL = Cpl_NOSHIELD_FILL*l
+*
++ Ctot_NOSHIELD = Ctot_NOSHIELD_NOFILL*(patternfill == 0) + Ctot_NOSHIELD_FILL*(patternfill == 1)
+*
++ delta_NOSHIELD = 1.e-10
++ num_side_fill_NOSHIELD = (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_NOSHIELD = int(num_side_fill_NOSHIELD + delta_NOSHIELD)
++ coefill_side_NOSHIELD = d_MICRONS/(d_MICRONS - num_fill_NOSHIELD*wfill*denfillc)
++ Cctot_NOSHIELD_FILL = Cctot_NOSHIELD_NOFILL*coefill_side_NOSHIELD
+*
++ Cctot_NOSHIELD = Cctot_NOSHIELD_NOFILL*(patternfill == 0 || patternfill == 1 && (wfill <= 0 || num_fill_NOSHIELD < 1)) + Cctot_NOSHIELD_FILL*(patternfill == 1 && (wfill > 0 && num_fill_NOSHIELD >= 1))
+* ===============================================
+* ===============================================
+* Capacitance calculation for coupled wires with side shielding   
+*
++ Epsilon_r_ratio_SHIELD = 0.5*(Epsilon_r + Epsilon_r_side_over)/Epsilon_r_side
++ X41_SHIELD = 1.0448 
++ X42_SHIELD = 0.8582
++ X43_SHIELD = 1.2263
++ X44_SHIELD = 0.7376*Epsilon_r_ratio_SHIELD
++ X45_SHIELD = 0.8764
++ X46_SHIELD = 1.4370
++ X47_SHIELD = 0.9079
+*    
++ Y41_SHIELD = 1.0764 
++ Y42_SHIELD = 0.4692
++ Y43_SHIELD = 1.0765
++ Y44_SHIELD = 1.0228*Epsilon_r_ratio_SHIELD
++ Y45_SHIELD = 0.9244
++ Y46_SHIELD = 0.7134
++ Y47_SHIELD = 1.2565
++ Y48_SHIELD = 1.1456*Epsilon_r_ratio_SHIELD
++ Y49_SHIELD = 0.9380
++ Y410_SHIELD = 1.1374
++ Y411_SHIELD = 1.0307
+*
++ alfa_s_SHIELD = 2*atan(0.5*s_MICRONS/h_MICRONS)
++ beta_s_SHIELD = pi/2 - alfa_s_SHIELD
+*
++ alfa_d_SHIELD = 2*atan(0.5*d_MICRONS/h_MICRONS)
++ beta_d_SHIELD = pi/2 - alfa_d_SHIELD 
+*
++ Cpl_right_SHIELD_NOFILL_1 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(2/(pi-2))*log(0.5*pi) + X43_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Cpl_right_SHIELD_NOFILL_2 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(2/(pi-2))*log(0.5*pi) + X43_SHIELD*(2/pi)*log(0.5*d_MICRONS/h_MICRONS))
++ Cpl_right_SHIELD_NOFILL_3 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(1 - cos(alfa_d_SHIELD))/(alfa_d_SHIELD - sin(alfa_d_SHIELD))*log(alfa_d_SHIELD/sin(alfa_d_SHIELD)))
++ Cpl_right_SHIELD_NOFILL = Cpl_right_SHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cpl_right_SHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cpl_right_SHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ Cpl_left_SHIELD_NOFILL_1 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(2/(pi-2))*log(0.5*pi) + X43_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Cpl_left_SHIELD_NOFILL_2 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(2/(pi-2))*log(0.5*pi) + X43_SHIELD*(2/pi)*log(0.5*s_MICRONS/h_MICRONS))
++ Cpl_left_SHIELD_NOFILL_3 = E0*(X41_SHIELD*0.5*w_MICRONS/h_MICRONS + X42_SHIELD*(1-cos(alfa_s_SHIELD))/(alfa_s_SHIELD-sin(alfa_s_SHIELD))*log(alfa_s_SHIELD/sin(alfa_s_SHIELD)))
++ Cpl_left_SHIELD_NOFILL = Cpl_left_SHIELD_NOFILL_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cpl_left_SHIELD_NOFILL_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cpl_left_SHIELD_NOFILL_3*(s_MICRONS < 2*h_MICRONS)
+*
++ Cs_SHIELD_NOFILL_1 = E0*(X44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X45_SHIELD*(1/(pi-2))*log(0.5*pi))
++ Cs_SHIELD_NOFILL_2 = E0*(X44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X45_SHIELD*(1/(pi-2))*log(0.5*pi) + X46_SHIELD*(th_MICRONS + h_MICRONS - 0.5*s_MICRONS)/s_MICRONS)
++ Cs_SHIELD_NOFILL_3 = E0*(X44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X45_SHIELD*(1/(pi-2))*log(0.5*pi) + X46_SHIELD*th_MICRONS/s_MICRONS + X47_SHIELD*0.5*(1 - cos(beta_s_SHIELD))/(beta_s_SHIELD - sin(beta_s_SHIELD))*log(beta_s_SHIELD/sin(beta_s_SHIELD))) 
++ Cs_SHIELD_NOFILL = Cs_SHIELD_NOFILL_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cs_SHIELD_NOFILL_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cs_SHIELD_NOFILL_3*(s_MICRONS < 2*h_MICRONS)
+*
++ Cpl_SHIELD_NOFILL = (Cpl_right_SHIELD_NOFILL + Cpl_left_SHIELD_NOFILL)*Epsilon_r + Cs_SHIELD_NOFILL*Epsilon_r_side
+*
++ Co_right_SHIELD_NOFILL_1 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(2/(pi-2))*log(0.5*pi) + Y43_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Co_right_SHIELD_NOFILL_2 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(2/(pi-2))*log(0.5*pi) + Y43_SHIELD*(2/pi)*log(0.5*d_MICRONS/h_MICRONS))
++ Co_right_SHIELD_NOFILL_3 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(1 - cos(alfa_d_SHIELD))/(alfa_d_SHIELD - sin(alfa_d_SHIELD))*log(alfa_d_SHIELD/sin(alfa_d_SHIELD)))
++ Co_right_SHIELD_NOFILL = Co_right_SHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Co_right_SHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Co_right_SHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ Co_left_SHIELD_NOFILL_1 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(2/(pi-2))*log(0.5*pi) + Y43_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS))
++ Co_left_SHIELD_NOFILL_2 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(2/(pi-2))*log(0.5*pi) + Y43_SHIELD*(2/pi)*log(0.5*s_MICRONS/h_MICRONS))
++ Co_left_SHIELD_NOFILL_3 = E0*(Y41_SHIELD*0.5*w_MICRONS/h_MICRONS + Y42_SHIELD*(1 - cos(alfa_s_SHIELD))/(alfa_s_SHIELD - sin(alfa_s_SHIELD))*log(alfa_s_SHIELD/sin(alfa_s_SHIELD)))
++ Co_left_SHIELD_NOFILL = Co_left_SHIELD_NOFILL_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Co_left_SHIELD_NOFILL_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Co_left_SHIELD_NOFILL_3*(s_MICRONS < 2*h_MICRONS)
+*
++ Cso_SHIELD_NOFILL_1 = E0*(Y44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y45_SHIELD*(1/(pi-2))*log(0.5*pi))
++ Cso_SHIELD_NOFILL_2 = E0*(Y44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y45_SHIELD*(1/(pi-2))*log(0.5*pi) + Y46_SHIELD*(th_MICRONS + h_MICRONS - 0.5*s_MICRONS)/s_MICRONS)
++ Cso_SHIELD_NOFILL_3 = E0*(Y44_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Y45_SHIELD*(1/(pi-2))*log(0.5*pi) + Y46_SHIELD*th_MICRONS/s_MICRONS + Y47_SHIELD*0.5*(1 - cos(beta_s_SHIELD))/(beta_s_SHIELD - sin(beta_s_SHIELD))*log(beta_s_SHIELD/sin(beta_s_SHIELD))) 
++ Cso_SHIELD_NOFILL = Cso_SHIELD_NOFILL_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cso_SHIELD_NOFILL_2*(s_MICRONS >= 2*h_MICRONS && s_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cso_SHIELD_NOFILL_3*(s_MICRONS < 2*h_MICRONS)
+*
++ Cc_SHIELD_NOFILL_1 = E0*(Y48_SHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y49_SHIELD*(1/(pi-2))*log(0.5*pi))
++ Cc_SHIELD_NOFILL_2 = E0*(Y48_SHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y49_SHIELD*(1/(pi-2))*log(0.5*pi) + Y410_SHIELD*(th_MICRONS + h_MICRONS - 0.5*d_MICRONS)/d_MICRONS)
++ Cc_SHIELD_NOFILL_3 = E0*(Y48_SHIELD*(1/pi)*log(1 + w_MICRONS/d_MICRONS) + Y49_SHIELD*(1/(pi-2))*log(0.5*pi) + Y410_SHIELD*th_MICRONS/d_MICRONS + Y411_SHIELD*0.5*(1 - cos(beta_d_SHIELD))/(beta_d_SHIELD - sin(beta_d_SHIELD))*log(beta_d_SHIELD/sin(beta_d_SHIELD))) 
++ Cc_SHIELD_NOFILL_TEMP1 = Cc_SHIELD_NOFILL_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cc_SHIELD_NOFILL_2*(d_MICRONS >= 2*h_MICRONS && d_MICRONS < 2*(h_MICRONS + th_MICRONS)) + Cc_SHIELD_NOFILL_3*(d_MICRONS < 2*h_MICRONS)
+*
++ Co_SHIELD_NOFILL = (Co_right_SHIELD_NOFILL + Co_left_SHIELD_NOFILL)*Epsilon_r + (Cso_SHIELD_NOFILL + 2*Cc_SHIELD_NOFILL_TEMP1)*Epsilon_r_side 
+*
++ Cc0_SHIELD_NOFILL = Cc_SHIELD_NOFILL_TEMP1
++ Cc_SHIELD_NOFILL_TEMP2 = 0.5*(Co_SHIELD_NOFILL - Cpl_SHIELD_NOFILL)
++ Cc_SHIELD_NOFILL = Cc_SHIELD_NOFILL_TEMP1*(Cc_SHIELD_NOFILL_TEMP2 < 0) + Cc_SHIELD_NOFILL_TEMP2*(Cc_SHIELD_NOFILL_TEMP2 >= 0)
+*
++ Ctot_SHIELD_NOFILL = Cpl_SHIELD_NOFILL*l
++ Cctot_SHIELD_NOFILL = Cc_SHIELD_NOFILL*l
++ Ctot_NOFILL_SHIELD = Ctot_SHIELD_NOFILL
++ Cctot_NOFILL_SHIELD = Cctot_SHIELD_NOFILL
+*
++ Ctot_NOFILL = Ctot_NOFILL_NOSHIELD*(shieldsads == 0 && customcap == 0) + Ctot_NOFILL_SHIELD*(shieldsads == 1 && customcap == 0) + Ctot_cust*(customcap == 1)
++ Cctot_NOFILL = Cctot_NOFILL_NOSHIELD*(shieldsads == 0 && customcap == 0) + Cctot_NOFILL_SHIELD*(shieldsads == 1 && customcap == 0) + Cctot_cust*(customcap == 1)
+*
+* Capacitance update due to Pattern Fill
++ coefill_SHIELD =  (1 - denfill) + denfill*h_MICRONS/(h_MICRONS - h_fill)
++ Cpl_right_SHIELD_FILL = Cpl_right_SHIELD_NOFILL*coefill_SHIELD
++ Cpl_left_SHIELD_FILL = Cpl_left_SHIELD_NOFILL*coefill_SHIELD
+*
++ delta_SHIELD = 1.e-10
++ num_side_fill_SHIELD_1 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_SHIELD_1 = int(num_side_fill_SHIELD_1 + delta_SHIELD)
+*
++ coefill_side_SHIELD_1 = s_MICRONS/(s_MICRONS - num_fill_SHIELD_1*wfill*denfillc) 
++ Cs_SHIELD_FILL = Cs_SHIELD_NOFILL*coefill_side_SHIELD_1
+*
++ num_side_fill_SHIELD_2 = (d_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_SHIELD_2 = int(num_side_fill_SHIELD_2 + delta_SHIELD)
++ coefill_side_SHIELD_2 = d_MICRONS/(d_MICRONS - num_fill_SHIELD_2*wfill*denfillc)
++ Cc_SHIELD_FILL = Cc_SHIELD_NOFILL*coefill_side_SHIELD_2
+*
++ Cctot_SHIELD_FILL = (Cc_SHIELD_NOFILL*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_SHIELD_2 < 1))) + Cc_SHIELD_FILL*(patternfill == 1 && (wfill > 0 && num_fill_SHIELD_2 >= 1)))*l
+*
++ Cpl_SHIELD_FILL = (Cpl_right_SHIELD_FILL + Cpl_left_SHIELD_FILL)*Epsilon_r + (Cs_SHIELD_NOFILL*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_SHIELD_1 < 1))) + Cs_SHIELD_FILL*(patternfill == 1 && wfill > 0 && num_fill_SHIELD_1 >= 1))*Epsilon_r_side
+*
++ Ctot_SHIELD_FILL = Cpl_SHIELD_FILL*l
+*
++ Ctot_SHIELD = Ctot_SHIELD_NOFILL*(patternfill == 0) + Ctot_SHIELD_FILL*(patternfill == 1)
++ Cctot_SHIELD = Cctot_SHIELD_NOFILL*(patternfill == 0) + Cctot_SHIELD_FILL*(patternfill == 1)
+*
++ Ctot = Ctot_NOSHIELD*(shieldsads == 0 && customcap == 0) + Ctot_SHIELD*(shieldsads == 1 && customcap == 0) + Ctot_cust*(customcap == 1)
++ Cctot = Cctot_NOSHIELD*(shieldsads == 0 && customcap == 0) + Cctot_SHIELD*(shieldsads == 1 && customcap == 0) + Cctot_cust*(customcap == 1)
+* ===============================================
+* ===============================================
+* Calculation of feedback parameters for the microstrip T-lines 
+*
++ fi = Rsquare/(pi*mu0*th_MICRONS*1e-6)
++ tof = l*(sqrt((Epsilon_r))/3e8)
++ Ltot_TEMP = (tof*tof)/Ctot_NOFILL    
++ Z0_TEMP = sqrt((Ltot_TEMP)/Ctot_NOFILL)
++ ratio_1 = Cctot_NOFILL/Ctot_NOFILL
++ Ltot = Ltot_TEMP*(1 + ratio_1)/(1 + 2.0*ratio_1)
+* 'K' renamed to K_cap because HSPICE is case insensitive hence to maintain consistency
++ K_cap = ratio_1/(1 + ratio_1)
+* ===============================================
+* ===============================================
+* Capacitance derivatives calculation for coupled wires without side shielding
+*
++ X21_D_NOSHIELD = 1.0467
++ X22_D_NOSHIELD = 0.9446
++ X23_D_NOSHIELD = 1.2070 
++ X24_D_NOSHIELD = 0.8498
+*
++ alfa_D_NOSHIELD = 2*atan(0.5*d_MICRONS/h_MICRONS)
++ Dalfa_D_NOSHIELD = 2.0/(1.0 + (0.5*d_MICRONS/h_MICRONS)*(0.5*d_MICRONS/h_MICRONS)) 
++ sna_D_NOSHIELD = sin(alfa_D_NOSHIELD)
++ csa_D_NOSHIELD = cos(alfa_D_NOSHIELD)
++ diffa_D_NOSHIELD = alfa_D_NOSHIELD - sna_D_NOSHIELD 
++ diffa2_D_NOSHIELD = diffa_D_NOSHIELD*diffa_D_NOSHIELD 
++ Dfa_D_NOSHIELD = (((sna_D_NOSHIELD*diffa_D_NOSHIELD - (1.0 - csa_D_NOSHIELD)*(1.0 - csa_D_NOSHIELD))/diffa2_D_NOSHIELD)*log(alfa_D_NOSHIELD/sna_D_NOSHIELD) + (1.0 - csa_D_NOSHIELD)*(sna_D_NOSHIELD - alfa_D_NOSHIELD*csa_D_NOSHIELD)/(diffa_D_NOSHIELD*alfa_D_NOSHIELD*sna_D_NOSHIELD))*Dalfa_D_NOSHIELD 
++ ht_D_NOSHIELD = h_MICRONS + th_MICRONS
++ hh_D_NOSHIELD = h_MICRONS*h_MICRONS 
++ hht_D_NOSHIELD = h_MICRONS*(h_MICRONS + th_MICRONS)
++ DfaDd_D_NOSHIELD = Dfa_D_NOSHIELD*0.5/h_MICRONS 
++ DfaDh_D_NOSHIELD = Dfa_D_NOSHIELD*(-0.5*d_MICRONS/hh_D_NOSHIELD)
+*
++ DcplrDw_D_NOSHIELD = E0*X21_D_NOSHIELD*0.5/h_MICRONS
++ DcplrDth_D_NOSHIELD = (E0*X23_D_NOSHIELD*(2.0/pi)/ht_D_NOSHIELD)*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (0.0)*(d_MICRONS < 2*(h_MICRONS + th_MICRONS))
++ DcplrDh_D_NOSHIELD_1 = E0*X21_D_NOSHIELD*0.5*(-w_MICRONS/hh_D_NOSHIELD) 
++ DcplrDh_D_NOSHIELD_2 = DcplrDh_D_NOSHIELD_1 + E0*(2.0/pi)*X23_D_NOSHIELD*(-th_MICRONS/hht_D_NOSHIELD)
++ DcplrDh_D_NOSHIELD_3 = DcplrDh_D_NOSHIELD_1 - E0*X23_D_NOSHIELD*(2.0/pi)/h_MICRONS
++ DcplrDh_D_NOSHIELD_4 = DcplrDh_D_NOSHIELD_1 + E0*X22_D_NOSHIELD*DfaDh_D_NOSHIELD
++ DcplrDh_D_NOSHIELD = DcplrDh_D_NOSHIELD_2*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplrDh_D_NOSHIELD_3*(d_MICRONS < 2*(h_MICRONS + th_MICRONS) && d_MICRONS >= 2*h_MICRONS) + DcplrDh_D_NOSHIELD_4*(d_MICRONS < 2*h_MICRONS)
+*
++ DcplrDd_D_NOSHIELD_1 = 0.0
++ DcplrDd_D_NOSHIELD_2 = E0*X23_D_NOSHIELD*(2.0/pi)/d_MICRONS
++ DcplrDd_D_NOSHIELD_3 = E0*X22_D_NOSHIELD*DfaDd_D_NOSHIELD
++ DcplrDd_D_NOSHIELD = DcplrDd_D_NOSHIELD_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplrDd_D_NOSHIELD_2*(d_MICRONS < 2*(h_MICRONS + th_MICRONS) && d_MICRONS >= 2*h_MICRONS) + DcplrDd_D_NOSHIELD_3*(d_MICRONS < 2*h_MICRONS)
+*
++ wht1_D_NOSHIELD = 1.5/(ht_MICRONS + 1.5*w_MICRONS)
++ wht2_D_NOSHIELD = -w_MICRONS*wht1_D_NOSHIELD/ht_D_NOSHIELD
++ wht3_D_NOSHIELD = 1.0/(0.5*ht_D_NOSHIELD - 0.5*th_g_MICRONS + w_MICRONS)
++ wht4_D_NOSHIELD = 3.0/(ht_D_NOSHIELD + 3.0*th_g_MICRONS)
++ wht5_D_NOSHIELD = wht3_D_NOSHIELD/(0.5*ht_D_NOSHIELD + 1.5*th_g_MICRONS)
++ wht6_D_NOSHIELD = -th_g_MICRONS*wht4_D_NOSHIELD/ht_D_NOSHIELD
++ wht7_D_NOSHIELD = -0.5*(w_MICRONS - 2.0*th_g_MICRONS)*wht5_D_NOSHIELD    
+*
++ Dc1Dw_D_NOSHIELD = E0*X21_D_NOSHIELD*0.5/h_MICRONS
++ Dc1Dth_D_NOSHIELD = E0*X23_D_NOSHIELD*(2.0/pi)/ht_D_NOSHIELD
++ Dc1Dh_D_NOSHIELD = E0*(X21_D_NOSHIELD*0.5*(-w_MICRONS/hh_D_NOSHIELD) + X23_D_NOSHIELD*(2.0/pi)*(-th_MICRONS/hht_D_NOSHIELD))
+*
++ Dc2Dw_D_NOSHIELD = (E0*X24_D_NOSHIELD*(2.0/(3.0*pi))*wht1_D_NOSHIELD)*(w_MICRONS <= 2*th_g_MICRONS) + (E0*X24_D_NOSHIELD*(0.5/pi)*wht3_D_NOSHIELD)*(w_MICRONS > 2*th_g_MICRONS)
++ Dc2Dth_D_NOSHIELD = (E0*X24_D_NOSHIELD*(2.0/(3.0*pi))*wht2_D_NOSHIELD)*(w_MICRONS <= 2*th_g_MICRONS) + E0*X24_D_NOSHIELD*((2.0/(3.0*pi))*wht6_D_NOSHIELD + (0.5/pi)*wht7_D_NOSHIELD)*(w_MICRONS > 2*th_g_MICRONS)   
+*
++ Dc2Dh_D_NOSHIELD = Dc2Dth_D_NOSHIELD
+*
++ Dc2Dthg_D_NOSHIELD = (0.0)*(w_MICRONS <= 2*th_g_MICRONS) + (E0*X24_D_NOSHIELD*((2.0/(3.0*pi))*wht4_D_NOSHIELD - (0.5/pi)*(ht_D_NOSHIELD + 1.5*w_MICRONS)*wht5_D_NOSHIELD))*(w_MICRONS > 2*th_g_MICRONS)
+*
++ DcplDw_D_NOSHIELD = DcplrDw_D_NOSHIELD + Dc1Dw_D_NOSHIELD + Dc2Dw_D_NOSHIELD  
++ DcplDth_D_NOSHIELD = DcplrDth_D_NOSHIELD + Dc1Dth_D_NOSHIELD + Dc2Dth_D_NOSHIELD 
++ DcplDh_D_NOSHIELD = DcplrDh_D_NOSHIELD + Dc1Dh_D_NOSHIELD + Dc2Dh_D_NOSHIELD
++ DcplDthg_D_NOSHIELD = Dc2Dthg_D_NOSHIELD
++ DcplDd_D_NOSHIELD = DcplrDd_D_NOSHIELD
+*
++ Dcapcs_TEMP_NOSHIELD = (DcplDh_D_NOSHIELD - 2.0*DcplDw_D_NOSHIELD - 2.0*DcplDth_D_NOSHIELD + DcplDd_D_NOSHIELD)*2.0  
++ Dcapcg_TEMP_NOSHIELD = (DcplDh_D_NOSHIELD - 2.0*DcplDthg_D_NOSHIELD)*2.0 
+*
++ Dcapcs_NOSHIELD = Dcapcs_TEMP_NOSHIELD*1e6
++ Dcapcg_NOSHIELD = Dcapcg_TEMP_NOSHIELD*1e6
+* ===============================================
+* ===============================================
+* Capacitance derivatives calculation for coupled wires with side shielding
+*
++ X41_D_SHIELD = 1.0448
++ X42_D_SHIELD = 0.8582
++ X43_D_SHIELD = 1.2263 
++ X44_D_SHIELD = 0.7376
++ X45_D_SHIELD = 0.8764 
++ X46_D_SHIELD = 1.4370
++ X47_D_SHIELD = 0.9079 
+*
++ alfa_D_SHIELD_1 = 2*atan(0.5*d_MICRONS/h_MICRONS)
++ Dalfa_D_SHIELD_1 = 2.0 /(1.0 + (0.5*d_MICRONS/h_MICRONS)*(0.5*d_MICRONS/h_MICRONS)) 
++ sna_D_SHIELD_1 = sin(alfa_D_SHIELD_1)
++ csa_D_SHIELD_1 = cos(alfa_D_SHIELD_1)
++ diffa_D_SHIELD_1 = alfa_D_SHIELD_1 - sna_D_SHIELD_1 
++ diffa2_D_SHIELD_1 = diffa_D_SHIELD_1*diffa_D_SHIELD_1 
++ Dfa_D_SHIELD_1 = (((sna_D_SHIELD_1*diffa_D_SHIELD_1 - (1.0 - csa_D_SHIELD_1)*(1.0 - csa_D_SHIELD_1))/diffa2_D_SHIELD_1)*log(alfa_D_SHIELD_1/sna_D_SHIELD_1) + (1.0 - csa_D_SHIELD_1)*(sna_D_SHIELD_1 - alfa_D_SHIELD_1*csa_D_SHIELD_1)/(diffa_D_SHIELD_1*alfa_D_SHIELD_1*sna_D_SHIELD_1))*Dalfa_D_SHIELD_1 
++ ht_D_SHIELD_1 = h_MICRONS + th_MICRONS
++ hh_D_SHIELD_1 = h_MICRONS*h_MICRONS 
++ hht_D_SHIELD_1 = h_MICRONS*(h_MICRONS + th_MICRONS)
++ DfaDd_D_SHIELD_1 = Dfa_D_SHIELD_1*0.5/h_MICRONS 
++ DfaDh_D_SHIELD_1 = Dfa_D_SHIELD_1*(-0.5*d_MICRONS/hh_D_SHIELD_1)
+*
++ DcplrDw_D_SHIELD = E0*X41_D_SHIELD*0.5/h_MICRONS
+*
++ DcplrDth_D_SHIELD = (E0*X43_D_SHIELD*(2.0/pi)/ht_D_SHIELD_1)*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (0.0)*(d_MICRONS < 2*(h_MICRONS + th_MICRONS))
+*
++ DcplrDh_D_SHIELD_1 = E0*X41_D_SHIELD*0.5*(-w_MICRONS/hh_D_SHIELD_1)   
++ DcplrDh_D_SHIELD_2 = DcplrDh_D_SHIELD_1 + E0*X43_D_SHIELD*(-th_MICRONS/hht_D_SHIELD_1)
++ DcplrDh_D_SHIELD_3 = DcplrDh_D_SHIELD_1 - E0*X43_D_SHIELD*(2.0/pi)/h_MICRONS
++ DcplrDh_D_SHIELD_4 = DcplrDh_D_SHIELD_1 + E0*X42_D_SHIELD*DfaDh_D_SHIELD_1
++ DcplrDh_D_SHIELD = DcplrDh_D_SHIELD_2*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplrDh_D_SHIELD_3*(d_MICRONS < 2*(h_MICRONS + th_MICRONS) && d_MICRONS >= 2*h_MICRONS) + DcplrDh_D_SHIELD_4*(d_MICRONS < 2*h_MICRONS)
+*
++ DcplrDd_D_SHIELD_1 = 0.0
++ DcplrDd_D_SHIELD_2 = E0*X43_D_SHIELD*(2.0/pi)/d_MICRONS
++ DcplrDd_D_SHIELD_3 = E0*X42_D_SHIELD*DfaDd_D_SHIELD_1
++ DcplrDd_D_SHIELD = DcplrDd_D_SHIELD_1*(d_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplrDd_D_SHIELD_2*(d_MICRONS < 2*(h_MICRONS + th_MICRONS) && d_MICRONS >= 2*h_MICRONS) + DcplrDd_D_SHIELD_3*(d_MICRONS < 2*h_MICRONS)
+*
++ alfa_D_SHIELD_2 = 2*atan(0.5*s_MICRONS/h_MICRONS)
++ Dalfa_D_SHIELD_2 = 2.0 /(1.0 + (0.5*d_MICRONS/h_MICRONS)*(0.5*s_MICRONS/h_MICRONS)) 
++ sna_D_SHIELD_2 = sin(alfa_D_SHIELD_2)
++ csa_D_SHIELD_2 = cos(alfa_D_SHIELD_2)
++ diffa_D_SHIELD_2 = alfa_D_SHIELD_2 - sna_D_SHIELD_2 
++ diffa2_D_SHIELD_2 = diffa_D_SHIELD_2*diffa_D_SHIELD_2 
++ Dfa_D_SHIELD_2 = (((sna_D_SHIELD_2*diffa_D_SHIELD_2 - (1.0 - csa_D_SHIELD_2)*(1.0 - csa_D_SHIELD_2))/diffa2_D_SHIELD_2)*log(alfa_D_SHIELD_2/sna_D_SHIELD_2) + (1.0 - csa_D_SHIELD_2)*(sna_D_SHIELD_2 - alfa_D_SHIELD_2*csa_D_SHIELD_2)/(diffa_D_SHIELD_2*alfa_D_SHIELD_2*sna_D_SHIELD_2))*Dalfa_D_SHIELD_2 
++ DfaDs_D_SHIELD_2 = Dfa_D_SHIELD_2 * 0.5/h_MICRONS 
++ DfaDh_D_SHIELD_2 = Dfa_D_SHIELD_2 *(-0.5*s_MICRONS/hh_D_SHIELD_1)
+*
++ DcpllDw_D_SHIELD = E0*X41_D_SHIELD*0.5/h_MICRONS
+*
++ DcpllDth_D_SHIELD = E0*X43_D_SHIELD*(2.0/pi)/ht_D_SHIELD_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (0.0)*(s_MICRONS < 2*(h_MICRONS + th_MICRONS))
+*
++ DcpllDh_D_SHIELD_1 = E0*X41_D_SHIELD*0.5*(-w_MICRONS/hh_D_SHIELD_1)
++ DcpllDh_D_SHIELD_2 = DcpllDh_D_SHIELD_1 + E0*X43_D_SHIELD*(-th_MICRONS/hht_D_SHIELD_1)
++ DcpllDh_D_SHIELD_3 = DcpllDh_D_SHIELD_1 - E0*X43_D_SHIELD*(2.0/pi)/h_MICRONS
++ DcpllDh_D_SHIELD_4 = DcpllDh_D_SHIELD_1 + E0*X42_D_SHIELD*DfaDh_D_SHIELD_2
++ DcpllDh_D_SHIELD = DcpllDh_D_SHIELD_2*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcpllDh_D_SHIELD_3*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcpllDh_D_SHIELD_4*(s_MICRONS < 2*h_MICRONS)
+*
++ DcpllDs_D_SHIELD_1 = 0.0
++ DcpllDs_D_SHIELD_2 = E0*X43_D_SHIELD*(2.0/pi)/s_MICRONS
++ DcpllDs_D_SHIELD_3 = E0*X42_D_SHIELD*DfaDs_D_SHIELD_2
++ DcpllDs_D_SHIELD = DcpllDs_D_SHIELD_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcpllDs_D_SHIELD_2*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcpllDs_D_SHIELD_3*(s_MICRONS < 2*h_MICRONS)
+*
++ beta_D_SHIELD_2 = pi/2 - alfa_D_SHIELD_2
++ Dbeta_D_SHIELD = -Dalfa_D_SHIELD_2
++ snb_D_SHIELD = sin(beta_D_SHIELD_2)
++ csb_D_SHIELD = cos(beta_D_SHIELD_2)
++ diffb_D_SHIELD = beta_D_SHIELD_2 - snb_D_SHIELD 
++ diffb2_D_SHIELD = diffb_D_SHIELD*diffb_D_SHIELD 
++ Dfb_D_SHIELD = 0.5*(((snb_D_SHIELD*diffb_D_SHIELD - (1.0 - csb_D_SHIELD)*(1.0 - csb_D_SHIELD))/diffb2_D_SHIELD)*log(beta_D_SHIELD_2/snb_D_SHIELD) + (1.0 - csb_D_SHIELD)*(snb_D_SHIELD - beta_D_SHIELD_2*csb_D_SHIELD)/(diffb_D_SHIELD*beta_D_SHIELD_2*snb_D_SHIELD))*Dbeta_D_SHIELD 
++ DfbDs_D_SHIELD = Dfb_D_SHIELD * 0.5/h_MICRONS 
++ DfbDh_D_SHIELD = Dfb_D_SHIELD *(-0.5*s_MICRONS/hh_D_SHIELD_1)
++ ss_D_SHIELD = s_MICRONS*s_MICRONS
++ sw_D_SHIELD = s_MICRONS + w_MICRONS
++ ssw_D_SHIELD = (s_MICRONS + w_MICRONS)*s_MICRONS         
+*  
++ DcsDw_D_SHIELD = E0*X44_D_SHIELD*(1.0/pi)/sw_D_SHIELD
+*
++ DcsDh_D_SHIELD_1 = 0.0
++ DcsDh_D_SHIELD_2 = E0*X46_D_SHIELD/s_MICRONS
++ DcsDh_D_SHIELD_3 = E0*X47_D_SHIELD*DfbDh_D_SHIELD
++ DcsDh_D_SHIELD = DcsDh_D_SHIELD_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcsDh_D_SHIELD_2*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcsDh_D_SHIELD_3*(s_MICRONS < 2*h_MICRONS)
+*
++ DcsDth_D_SHIELD = (0.0)*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (E0*X46_D_SHIELD/s_MICRONS)*(s_MICRONS < 2*(h_MICRONS + th_MICRONS))
+*
++ DcsDs_D_SHIELD_1 = E0*X44_D_SHIELD*(1.0/pi)*(-w_MICRONS/ssw_D_SHIELD)
++ DcsDs_D_SHIELD_2 = DcsDs_D_SHIELD_1
++ DcsDs_D_SHIELD_3 = DcsDs_D_SHIELD_1 + E0*X46_D_SHIELD*(-ht_D_SHIELD_1/ss_D_SHIELD)
++ DcsDs_D_SHIELD_4 = DcsDs_D_SHIELD_1 + E0*(X46_D_SHIELD*(-th_MICRONS/ss_D_SHIELD) + X47_D_SHIELD*DfbDs_D_SHIELD)
++ DcsDs_D_SHIELD = DcsDs_D_SHIELD_2*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcsDs_D_SHIELD_3*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcsDs_D_SHIELD_4*(s_MICRONS < 2*h_MICRONS)
+*
++ DcplDw_D_SHIELD = DcplrDw_D_SHIELD + DcpllDw_D_SHIELD + DcsDw_D_SHIELD  
++ DcplDth_D_SHIELD = DcplrDth_D_SHIELD + DcpllDth_D_SHIELD + DcsDth_D_SHIELD
++ DcplDh_D_SHIELD = DcplrDh_D_SHIELD + DcpllDh_D_SHIELD + DcsDh_D_SHIELD
++ DcplDd_D_SHIELD = DcplrDd_D_SHIELD
++ DcplDs_D_SHIELD = DcpllDs_D_SHIELD + DcsDs_D_SHIELD
+*
++ Dcapcs_TEMP_SHIELD = (DcplDh_D_SHIELD - 2.0*DcplDw_D_SHIELD - 2.0*DcplDth_D_SHIELD + DcplDd_D_SHIELD + 2.0*DcplDs_D_SHIELD)*2.0
++ Dcapcg_TEMP_SHIELD = DcplDh_D_SHIELD*2.0 
+*
++ Dcapcs_SHIELD = Dcapcs_TEMP_SHIELD*1.e6	
++ Dcapcg_SHIELD = Dcapcg_TEMP_SHIELD*1.e6 
+*
++ Dcapcs = Dcapcs_NOSHIELD*(shieldsads == 0) + Dcapcs_SHIELD*(shieldsads == 1)
++ Dcapcg = Dcapcg_NOSHIELD*(shieldsads == 0) + Dcapcg_SHIELD*(shieldsads == 1)
+* ===============================================
+* ===============================================
+* Capacitance calculation for coupled wires without side shielding, non-symmeteric case
+*
++ X11_NS_NOSHIELD = 0.9905
++ X12_NS_NOSHIELD = 0.9210
++ X13_NS_NOSHIELD = 1.1851 
++ X14_NS_NOSHIELD = 0.9477 
+* 
++ C1_NS_NOSHIELD = 2*E0*(X11_NS_NOSHIELD*0.5*w_MICRONS/h_MICRONS + X12_NS_NOSHIELD*(2/(pi-2))*log(0.5*pi) + X13_NS_NOSHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS)) 
++ ht_NS_NOSHIELD = h_MICRONS + th_MICRONS
+*
++ C2_NS_NOSHIELD = (2*E0*X14_NS_NOSHIELD*(2/(3*pi))*log(1 + 1.5*w_MICRONS/ht_NS_NOSHIELD))*(w_MICRONS < 2*th_g_MICRONS) + (2*E0*X14_NS_NOSHIELD*((2/(3*pi))*log(1 + 3*th_g_MICRONS/ht_NS_NOSHIELD) + (0.5/pi)*log(1 + (w_MICRONS - 2*th_g_MICRONS)/(0.5*ht_NS_NOSHIELD + 1.5*th_g_MICRONS))))*(w_MICRONS >= 2*th_g_MICRONS)
+*
++ Cns_NS_NOSHIELD = C1_NS_NOSHIELD + C2_NS_NOSHIELD
+* ===============================================
+* ===============================================
+* Capacitance calculation for coupled wires with side shielding, non-symmeteric case   
+*
++ X31_NS_SHIELD = 1.0544 
++ X32_NS_SHIELD = 0.6172
++ X33_NS_SHIELD = 1.2419
++ X34_NS_SHIELD = 0.8353
++ X35_NS_SHIELD = 1.0279
++ X36_NS_SHIELD = 1.0536
++ X37_NS_SHIELD = 1.1063
+*    
++ alfa_NS_SHIELD_1 = 2*atan(0.5*s_MICRONS/h_MICRONS)
++ beta_NS_SHIELD_1 = pi/2 - alfa_NS_SHIELD_1
+*
++ Cpl_NS_SHIELD_1_1 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_NS_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS)) 
++ Cpl_NS_SHIELD_2_1 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_NS_SHIELD*(2/pi)*log(0.5*s_MICRONS/h_MICRONS))
++ Cpl_NS_SHIELD_3_1 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(1 - cos(alfa_NS_SHIELD_1))/(alfa_NS_SHIELD_1 - sin(alfa_NS_SHIELD_1))*log(alfa_NS_SHIELD_1/sin(alfa_NS_SHIELD_1)))
++ Cpl_NS_SHIELD1 = Cpl_NS_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cpl_NS_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + Cpl_NS_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ Cc_NS_SHIELD_1_1 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi))
++ Cc_NS_SHIELD_2_1 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_NS_SHIELD*(th_MICRONS + h_MICRONS - 0.5*s_MICRONS)/s_MICRONS)
++ Cc_NS_SHIELD_3_1 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_NS_SHIELD*th_MICRONS/s_MICRONS + X37_NS_SHIELD*0.5*(1 - cos(beta_NS_SHIELD_1))/(beta_NS_SHIELD_1 - sin(beta_NS_SHIELD_1))*log(beta_NS_SHIELD_1/sin(beta_NS_SHIELD_1))) 
++ Cc_NS_SHIELD1 = Cc_NS_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + Cc_NS_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + Cc_NS_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ Cns_NS_SHIELD_1 = 2*Cpl_NS_SHIELD1 + 2*Cc_NS_SHIELD1
+*
++ Capns1 = 0.5*Cns_NS_SHIELD_1
+*
++ alfa_NS_SHIELD_2 = 2*atan(0.5*(d_MICRONS + w_MICRONS + s_MICRONS)/h_MICRONS)
++ beta_NS_SHIELD_2 = pi/2 - alfa_NS_SHIELD_2
+*
++ Cpl_NS_SHIELD_1_2 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_NS_SHIELD*(2/pi)*log(1 + th_MICRONS/h_MICRONS)) 
++ Cpl_NS_SHIELD_2_2 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(2/(pi-2))*log(0.5*pi) + X33_NS_SHIELD*(2/pi)*log(0.5*(d_MICRONS + w_MICRONS + s_MICRONS)/h_MICRONS))
++ Cpl_NS_SHIELD_3_2 = E0*(X31_NS_SHIELD*0.5*w_MICRONS/h_MICRONS + X32_NS_SHIELD*(1 - cos(alfa_NS_SHIELD_1))/(alfa_NS_SHIELD_1 - sin(alfa_NS_SHIELD_2))*log(alfa_NS_SHIELD_2/sin(alfa_NS_SHIELD_2)))
++ Cpl_NS_SHIELD2 = Cpl_NS_SHIELD_1_2*((d_MICRONS + w_MICRONS + s_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + Cpl_NS_SHIELD_2_2*((d_MICRONS + w_MICRONS + s_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (d_MICRONS + w_MICRONS + s_MICRONS) >= 2*h_MICRONS) + Cpl_NS_SHIELD_3_2*((d_MICRONS + w_MICRONS + s_MICRONS) < 2*h_MICRONS)
+*
++ Cc_NS_SHIELD_1_2 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/(d_MICRONS + w_MICRONS + s_MICRONS)) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi))
++ Cc_NS_SHIELD_2_2 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/(d_MICRONS + w_MICRONS + s_MICRONS)) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_NS_SHIELD*(th_MICRONS + h_MICRONS - 0.5*(d_MICRONS + w_MICRONS + s_MICRONS))/(d_MICRONS + w_MICRONS + s_MICRONS))
++ Cc_NS_SHIELD_3_2 = E0*(X34_NS_SHIELD*(1/pi)*log(1 + w_MICRONS/(d_MICRONS + w_MICRONS + s_MICRONS)) + X35_NS_SHIELD*(1/(pi-2))*log(0.5*pi) + X36_NS_SHIELD*th_MICRONS/(d_MICRONS + w_MICRONS + s_MICRONS) + X37_NS_SHIELD*0.5*(1 - cos(beta_NS_SHIELD_2))/(beta_NS_SHIELD_2 - sin(beta_NS_SHIELD_2))*log(beta_NS_SHIELD_2/sin(beta_NS_SHIELD_2))) 
++ Cc_NS_SHIELD2 = Cc_NS_SHIELD_1_2*((d_MICRONS + w_MICRONS + s_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + Cc_NS_SHIELD_2_2*((d_MICRONS + w_MICRONS + s_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (d_MICRONS + w_MICRONS + s_MICRONS) >= 2*h_MICRONS) + Cc_NS_SHIELD_3_2*((d_MICRONS + w_MICRONS + s_MICRONS) < 2*h_MICRONS)
+*
++ Cns_NS_SHIELD_2 = 2*Cpl_NS_SHIELD2 + 2*Cc_NS_SHIELD2
+*
++ Capns2 = Capns1 + 0.5*Cns_NS_SHIELD_2
+*
++ Cns_NS_SHIELD = Capns2
+*
++ Cns = Cns_NS_NOSHIELD*(shieldsads == 0) + Cns_NS_SHIELD*(shieldsads == 1) 
+* ===============================================
+* ===============================================
+* Capacitance derivatives calculation for coupled wires without side shielding, non-symmteric case
+*
++ X11_NS_D_NOSHIELD = 0.9905
++ X12_NS_D_NOSHIELD = 0.9210
++ X13_NS_D_NOSHIELD = 1.1851 
++ X14_NS_D_NOSHIELD = 0.9477
+*
++ hh_NS_D_NOSHIELD = h_MICRONS*h_MICRONS 
++ Dc1Dw_NS_D_NOSHIELD = E0/h_MICRONS
++ Dc1Dh_NS_D_NOSHIELD = E0*(-w_MICRONS)/hh_NS_D_NOSHIELD
++ Dc3Dt_NS_D_NOSHIELD = 2.0*E0*(2.0/pi)/(h_MICRONS + th_MICRONS) 
++ Dc3Dh_NS_D_NOSHIELD = -2.0*E0*(2.0/pi)*th_MICRONS/(hh_NS_D_NOSHIELD + h_MICRONS*th_MICRONS) 
+*
++ dv1_NS_D_NOSHIELD = 2*(h_MICRONS + th_MICRONS) + 3*w_MICRONS 
++ dv2_NS_D_NOSHIELD = dv1_NS_D_NOSHIELD*(h_MICRONS + th_MICRONS) 
++ dv3_NS_D_NOSHIELD = 0.5*(h_MICRONS + th_MICRONS - th_g_MICRONS) + w_MICRONS 
++ dv4_NS_D_NOSHIELD = dv3_NS_D_NOSHIELD*(0.5*(h_MICRONS + th_MICRONS) + 1.5*th_g_MICRONS) 
++ dv5_NS_D_NOSHIELD = (h_MICRONS + th_MICRONS) + 3*th_g_MICRONS 
++ dv6_NS_D_NOSHIELD = dv5_NS_D_NOSHIELD*(h_MICRONS + th_MICRONS) 
+*
++ Dc4Dw_NS_D_NOSHIELD = ((2.0*E0)*(2.0/pi)/dv1_NS_D_NOSHIELD)*(w_MICRONS <= 2*th_g_MICRONS) + ((2.0*E0)*(0.5/pi)/dv3_NS_D_NOSHIELD)*(w_MICRONS > 2*th_g_MICRONS)
+*
++ Dc4Dt_NS_D_NOSHIELD = ((2.0*E0)*(-2.0/pi)*(3*w/dv2_NS_D_NOSHIELD))*(w_MICRONS <= 2*th_g_MICRONS) + ((2.0*E0)*((-2/pi)*th_g_MICRONS/dv6_NS_D_NOSHIELD - (0.5/pi)*0.5*(w_MICRONS - 2*th_g_MICRONS)/dv4_NS_D_NOSHIELD))*(w_MICRONS > 2*th_g_MICRONS)
+*
++ Dc4Dh_NS_D_NOSHIELD = Dc4Dt_NS_D_NOSHIELD
+*
++ Dc4Dtg_NS_D_NOSHIELD = (0.0)*(w_MICRONS <= 2*th_g_MICRONS) + ((2.0*E0)*((2/pi)/dv5_NS_D_NOSHIELD - (0.5/pi)*(h_MICRONS + th_MICRONS + 1.5*w_MICRONS)/dv4_NS_D_NOSHIELD))*(w_MICRONS > 2*th_g_MICRONS)
+*
++ DcDw_NS_D_NOSHIELD = X11_NS_D_NOSHIELD*Dc1Dw_NS_D_NOSHIELD + X14_NS_D_NOSHIELD*Dc4Dw_NS_D_NOSHIELD 
++ DcDt_NS_D_NOSHIELD = X13_NS_D_NOSHIELD*Dc3Dt_NS_D_NOSHIELD + X14_NS_D_NOSHIELD*Dc4Dt_NS_D_NOSHIELD 
++ DcDh_NS_D_NOSHIELD = X11_NS_D_NOSHIELD*Dc1Dh_NS_D_NOSHIELD + X13_NS_D_NOSHIELD*Dc3Dh_NS_D_NOSHIELD + X14_NS_D_NOSHIELD*Dc4Dh_NS_D_NOSHIELD
++ DcDtg_NS_D_NOSHIELD = X14_NS_D_NOSHIELD*Dc4Dtg_NS_D_NOSHIELD 
+*
++ Dcaps_NS_D_NOSHIELD =  -2.0*DcDw_NS_D_NOSHIELD - 2.0*DcDt_NS_D_NOSHIELD + DcDh_NS_D_NOSHIELD
++ Dcapg_NS_D_NOSHIELD = DcDh_NS_D_NOSHIELD - DcDtg_NS_D_NOSHIELD
+*
++ Dcapnss_NS_D_NOSHIELD = Dcaps_NS_D_NOSHIELD*1e6 
++ Dcapnsg_NS_D_NOSHIELD = Dcapg_NS_D_NOSHIELD*1e6
+* ===============================================
+* ===============================================
+* Capacitance derivatives calculation for coupled wires with side shielding, non-symmeteric case
+*
++ X31_NS_D_SHIELD = 1.0544
++ X32_NS_D_SHIELD = 0.6172
++ X33_NS_D_SHIELD = 1.2419 
++ X34_NS_D_SHIELD = 0.8353
++ X35_NS_D_SHIELD = 1.0279 
++ X36_NS_D_SHIELD = 1.0536
++ X37_NS_D_SHIELD = 1.1063 
+*
+* Begin first call ...
++ alfa_NS_D_SHIELD_1 = 2*atan(0.5*s_MICRONS/h_MICRONS)
++ beta_NS_D_SHIELD_1 = pi/2 - alfa_NS_D_SHIELD_1
+*
++ sna_NS_D_SHIELD_1 = sin(alfa_NS_D_SHIELD_1)
++ csa_NS_D_SHIELD_1 = cos(alfa_NS_D_SHIELD_1)
++ diffa_NS_D_SHIELD_1 = alfa_NS_D_SHIELD_1 - sna_NS_D_SHIELD_1 
++ diffa2_NS_D_SHIELD_1 = diffa_NS_D_SHIELD_1*diffa_NS_D_SHIELD_1 
+*
++ DcplDa_NS_D_SHIELD_1 = X32_NS_D_SHIELD*(((sna_NS_D_SHIELD_1*diffa_NS_D_SHIELD_1 - (1.0 - csa_NS_D_SHIELD_1)*(1.0 - csa_NS_D_SHIELD_1))/diffa2_NS_D_SHIELD_1)*log(alfa_NS_D_SHIELD_1/sna_NS_D_SHIELD_1) + (1.0 - csa_NS_D_SHIELD_1)*(sna_NS_D_SHIELD_1 - alfa_NS_D_SHIELD_1*csa_NS_D_SHIELD_1)/(diffa_NS_D_SHIELD_1*alfa_NS_D_SHIELD_1*sna_NS_D_SHIELD_1))
++ DcplDw_NS_D_SHIELD_1 = X31_NS_D_SHIELD*E0*0.5/h_MICRONS
+*
++ DcplDt_NS_D_SHIELD_1 = (X33_NS_D_SHIELD*E0*(2/pi)/(h_MICRONS + th_MICRONS))*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (0.0)*(s_MICRONS < 2*(h_MICRONS + th_MICRONS))
+*
++ hh_NS_D_SHIELD_1 = h_MICRONS*h_MICRONS
++ h2_NS_D_SHIELD_1 = 2*h_MICRONS
++ h2s_NS_D_SHIELD_1 = h2_NS_D_SHIELD_1*h2_NS_D_SHIELD_1 + s_MICRONS*s_MICRONS
+*
++ DcplDh_NS_D_SHIELD_1_1 = E0*(- X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_1 + X33_NS_D_SHIELD*(2/pi)*(-th_MICRONS)/(hh_NS_D_SHIELD_1 + h_MICRONS*th_MICRONS))
++ DcplDh_NS_D_SHIELD_2_1 = E0*(- X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_1 - X33_NS_D_SHIELD*(2/pi)/h_MICRONS)
++ DcplDh_NS_D_SHIELD_3_1 = E0*(- X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_1 + DcplDa_NS_D_SHIELD_1*(-4*s_MICRONS/h2s_NS_D_SHIELD_1))
++ DcplDh_NS_D_SHIELD_1 = DcplDh_NS_D_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplDh_NS_D_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcplDh_NS_D_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ DcplDs_NS_D_SHIELD_1_1 = 0.0
++ DcplDs_NS_D_SHIELD_2_1 = X33_NS_D_SHIELD*E0*(2/pi)/s_MICRONS
++ DcplDs_NS_D_SHIELD_3_1 = E0*DcplDa_NS_D_SHIELD_1*4*h_MICRONS/h2s_NS_D_SHIELD_1
++ DcplDs_NS_D_SHIELD_1 = DcplDs_NS_D_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DcplDs_NS_D_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DcplDs_NS_D_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ snb_NS_D_SHIELD_1 = sin(beta_NS_D_SHIELD_1)
++ csb_NS_D_SHIELD_1 = cos(beta_NS_D_SHIELD_1)
++ diffb_NS_D_SHIELD_1 = beta_NS_D_SHIELD_1 - snb_NS_D_SHIELD_1 
++ diffb2_NS_D_SHIELD_1 = diffb_NS_D_SHIELD_1*diffb_NS_D_SHIELD_1 
++ ss_NS_D_SHIELD_1 = s_MICRONS*s_MICRONS
+*
++ DCcDb_NS_D_SHIELD_1 = X37_NS_D_SHIELD*0.5*(((snb_NS_D_SHIELD_1*diffb_NS_D_SHIELD_1 - (1.0 - csb_NS_D_SHIELD_1)*(1.0 - csb_NS_D_SHIELD_1))/diffb2_NS_D_SHIELD_1)*log(beta_NS_D_SHIELD_1/snb_NS_D_SHIELD_1) + (1.0 - csb_NS_D_SHIELD_1)*(snb_NS_D_SHIELD_1 - beta_NS_D_SHIELD_1*csb_NS_D_SHIELD_1)/(diffb_NS_D_SHIELD_1*beta_NS_D_SHIELD_1*snb_NS_D_SHIELD_1))
++ DCcDw_NS_D_SHIELD_1 = X34_NS_D_SHIELD*E0*(1/pi)/(s_MICRONS + w_MICRONS)
+*
++ DCcDt_NS_D_SHIELD_1 = (0.0)*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + (X36_NS_D_SHIELD*E0/s_MICRONS)*(s_MICRONS < 2*(h_MICRONS + th_MICRONS))
+*
++ DCcDh_NS_D_SHIELD_1_1 = 0.0
++ DCcDh_NS_D_SHIELD_2_1 = X36_NS_D_SHIELD*E0/s_MICRONS
++ DCcDh_NS_D_SHIELD_3_1 = E0*DCcDb_NS_D_SHIELD_1*4*s_MICRONS/h2s_NS_D_SHIELD_1
++ DCcDh_NS_D_SHIELD_1 = DCcDh_NS_D_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DCcDh_NS_D_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DCcDh_NS_D_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ DCcDs_NS_D_SHIELD_1_1 = X34_NS_D_SHIELD*E0*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_1 + s_MICRONS*w_MICRONS))
++ DCcDs_NS_D_SHIELD_2_1 = E0*(X34_NS_D_SHIELD*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_1 + s_MICRONS*w_MICRONS)) - X36_NS_D_SHIELD*(th_MICRONS + h_MICRONS)/ss_NS_D_SHIELD_1)
++ DCcDs_NS_D_SHIELD_3_1 = E0*(X34_NS_D_SHIELD*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_1 + s_MICRONS*w_MICRONS)) - X36_NS_D_SHIELD*th_MICRONS/ss_NS_D_SHIELD_1 + DCcDb_NS_D_SHIELD_1*(-4*h_MICRONS/h2s_NS_D_SHIELD_1))
++ DCcDs_NS_D_SHIELD_1 = DCcDs_NS_D_SHIELD_1_1*(s_MICRONS >= 2*(h_MICRONS + th_MICRONS)) + DCcDs_NS_D_SHIELD_2_1*(s_MICRONS < 2*(h_MICRONS + th_MICRONS) && s_MICRONS >= 2*h_MICRONS) + DCcDs_NS_D_SHIELD_3_1*(s_MICRONS < 2*h_MICRONS)
+*
++ DcDw_NS_D_SHIELD_1 = DcplDw_NS_D_SHIELD_1 + DCcDw_NS_D_SHIELD_1 
++ DcDt_NS_D_SHIELD_1 = DcplDt_NS_D_SHIELD_1 + DCcDt_NS_D_SHIELD_1
++ DcDh_NS_D_SHIELD_1 = DcplDh_NS_D_SHIELD_1 + DCcDh_NS_D_SHIELD_1
++ DcDs_NS_D_SHIELD_1 = DcplDs_NS_D_SHIELD_1 + DCcDs_NS_D_SHIELD_1
+*
++ Dcap_NS_D_SHIELD_1 = 2*(-2.0*DcDw_NS_D_SHIELD_1 - 2.0*DcDt_NS_D_SHIELD_1 + 2.0*DcDh_NS_D_SHIELD_1 + 2.0*DcDs_NS_D_SHIELD_1)
++ Dcaps_NS_D_SHIELD_1 = 2*(-2.0*DcDw_NS_D_SHIELD_1 - 2.0*DcDt_NS_D_SHIELD_1 + DcDh_NS_D_SHIELD_1 + 2.0*DcDs_NS_D_SHIELD_1)
++ Dcapg_NS_D_SHIELD_1 = Dcap_NS_D_SHIELD_1 - Dcaps_NS_D_SHIELD_1
+*
++ Dcapnss_NS_D_SHIELD_1 = Dcaps_NS_D_SHIELD_1*1.e6
++ Dcapnsg_NS_D_SHIELD_1 = Dcapg_NS_D_SHIELD_1*1.e6
+* End of first call ...
++ Dcapsns_TEMP = 0.5*Dcapnss_NS_D_SHIELD_1
++ Dcapgns_TEMP = 0.5*Dcapnsg_NS_D_SHIELD_1
+*
+* Begin second call ...
++ alfa_NS_D_SHIELD_2 = 2*atan(0.5*(s_MICRONS + w_MICRONS + d_MICRONS)/h_MICRONS)
++ beta_NS_D_SHIELD_2 = pi/2 - alfa_NS_D_SHIELD_2
+*
++ sna_NS_D_SHIELD_2 = sin(alfa_NS_D_SHIELD_2)
++ csa_NS_D_SHIELD_2 = cos(alfa_NS_D_SHIELD_2)
++ diffa_NS_D_SHIELD_2 = alfa_NS_D_SHIELD_2 - sna_NS_D_SHIELD_2 
++ diffa2_NS_D_SHIELD_2 = diffa_NS_D_SHIELD_2*diffa_NS_D_SHIELD_2 
+*
++ DcplDa_NS_D_SHIELD_2 = X32_NS_D_SHIELD*(((sna_NS_D_SHIELD_2*diffa_NS_D_SHIELD_2 - (1.0 - csa_NS_D_SHIELD_2)*(1.0 - csa_NS_D_SHIELD_2))/diffa2_NS_D_SHIELD_2)*log(alfa_NS_D_SHIELD_2/sna_NS_D_SHIELD_2) + (1.0 - csa_NS_D_SHIELD_2)*(sna_NS_D_SHIELD_2 - alfa_NS_D_SHIELD_2*csa_NS_D_SHIELD_2)/(diffa_NS_D_SHIELD_2*alfa_NS_D_SHIELD_2*sna_NS_D_SHIELD_2))
++ DcplDw_NS_D_SHIELD_2 = X31_NS_D_SHIELD*E0*0.5/h_MICRONS
+*
++ DcplDt_NS_D_SHIELD_2 = (X33_NS_D_SHIELD*E0*(2/pi)/(h_MICRONS + th_MICRONS))*((s_MICRONS + w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + (0.0)*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS))
+*
++ hh_NS_D_SHIELD_2 = h_MICRONS*h_MICRONS
++ h2_NS_D_SHIELD_2 = 2*h_MICRONS
++ h2s_NS_D_SHIELD_2 = h2_NS_D_SHIELD_2*h2_NS_D_SHIELD_2 + (s_MICRONS + w_MICRONS + d_MICRONS)*(s_MICRONS + w_MICRONS + d_MICRONS)
+*
++ DcplDh_NS_D_SHIELD_1_2 = E0*(-X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_2 + X33_NS_D_SHIELD*(2/pi)*(-th_MICRONS)/(hh_NS_D_SHIELD_2 + h_MICRONS*th_MICRONS))
++ DcplDh_NS_D_SHIELD_2_2 = E0*(-X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_2 - X33_NS_D_SHIELD*(2/pi)/h_MICRONS)
++ DcplDh_NS_D_SHIELD_3_2 = E0*(-X31_NS_D_SHIELD*0.5*w_MICRONS/hh_NS_D_SHIELD_2 + DcplDa_NS_D_SHIELD_2*(-4*(s_MICRONS +w_MICRONS + d_MICRONS)/h2s_NS_D_SHIELD_2))
++ DcplDh_NS_D_SHIELD_2 = DcplDh_NS_D_SHIELD_1_2*((s_MICRONS + w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + DcplDh_NS_D_SHIELD_2_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (s_MICRONS + w_MICRONS + d_MICRONS) >= 2*h_MICRONS) + DcplDh_NS_D_SHIELD_3_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*h_MICRONS)
+*
++ DcplDs_NS_D_SHIELD_1_2 = 0.0
++ DcplDs_NS_D_SHIELD_2_2 = X33_NS_D_SHIELD*E0*(2/pi)/(s_MICRONS +w_MICRONS + d_MICRONS)
++ DcplDs_NS_D_SHIELD_3_2 = E0*DcplDa_NS_D_SHIELD_2*4*h_MICRONS/h2s_NS_D_SHIELD_2
++ DcplDs_NS_D_SHIELD_2 = DcplDs_NS_D_SHIELD_1_2*((s_MICRONS + w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + DcplDs_NS_D_SHIELD_2_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (s_MICRONS + w_MICRONS + d_MICRONS) >= 2*h_MICRONS) + DcplDs_NS_D_SHIELD_3_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*h_MICRONS)
+*
++ snb_NS_D_SHIELD_2 = sin(beta_NS_D_SHIELD_2)
++ csb_NS_D_SHIELD_2 = cos(beta_NS_D_SHIELD_2)
++ diffb_NS_D_SHIELD_2 = beta_NS_D_SHIELD_2 - snb_NS_D_SHIELD_2 
++ diffb2_NS_D_SHIELD_2 = diffb_NS_D_SHIELD_2*diffb_NS_D_SHIELD_2 
++ ss_NS_D_SHIELD_2 = (s_MICRONS + w_MICRONS + d_MICRONS)*(s_MICRONS + w_MICRONS + d_MICRONS)
+*
++ DCcDb_NS_D_SHIELD_2 = X37_NS_D_SHIELD*0.5*(((snb_NS_D_SHIELD_2*diffb_NS_D_SHIELD_2 - (1.0 - csb_NS_D_SHIELD_2)*(1.0 - csb_NS_D_SHIELD_2))/diffb2_NS_D_SHIELD_2)*log(beta_NS_D_SHIELD_2/snb_NS_D_SHIELD_2) + (1.0 - csb_NS_D_SHIELD_2)*(snb_NS_D_SHIELD_2 - beta_NS_D_SHIELD_2*csb_NS_D_SHIELD_2)/(diffb_NS_D_SHIELD_2*beta_NS_D_SHIELD_2*snb_NS_D_SHIELD_2))
++ DCcDw_NS_D_SHIELD_2 = X34_NS_D_SHIELD*E0*(1/pi)/((s_MICRONS + w_MICRONS + d_MICRONS) + w_MICRONS)
+*
++ DCcDt_NS_D_SHIELD_2 = (0.0)*((s_MICRONS + w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + (X36_NS_D_SHIELD*E0/(s_MICRONS + w_MICRONS + d_MICRONS))*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS))
+*
++ DCcDh_NS_D_SHIELD_1_2 = 0.0
++ DCcDh_NS_D_SHIELD_2_2 = X36_NS_D_SHIELD*E0/(s_MICRONS + w_MICRONS + d_MICRONS)
++ DCcDh_NS_D_SHIELD_3_2 = E0*DCcDb_NS_D_SHIELD_2*4*(s_MICRONS + w_MICRONS + d_MICRONS)/h2s_NS_D_SHIELD_2
++ DCcDh_NS_D_SHIELD_2 = DCcDh_NS_D_SHIELD_1_2*((s_MICRONS + w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + DCcDh_NS_D_SHIELD_2_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (s_MICRONS + w_MICRONS + d_MICRONS) >= 2*h_MICRONS) + DCcDh_NS_D_SHIELD_3_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*h_MICRONS)
+*
++ DCcDs_NS_D_SHIELD_1_2 = X34_NS_D_SHIELD*E0*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_2 + (s_MICRONS + w_MICRONS + d_MICRONS)*w_MICRONS))
++ DCcDs_NS_D_SHIELD_2_2 = E0*(X34_NS_D_SHIELD*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_2 + (s_MICRONS + w_MICRONS + d_MICRONS)*w_MICRONS)) - X36_NS_D_SHIELD*(th_MICRONS + h_MICRONS)/ss_NS_D_SHIELD_2)
++ DCcDs_NS_D_SHIELD_3_2 = E0*(X34_NS_D_SHIELD*(1/pi)*(-w_MICRONS/(ss_NS_D_SHIELD_2 + (s_MICRONS + w_MICRONS + d_MICRONS)*w_MICRONS)) - X36_NS_D_SHIELD*th_MICRONS/ss_NS_D_SHIELD_2 + DCcDb_NS_D_SHIELD_2*(-4*h_MICRONS/h2s_NS_D_SHIELD_2))
++ DCcDs_NS_D_SHIELD_2 = DCcDs_NS_D_SHIELD_1_2*((s_MICRONS +w_MICRONS + d_MICRONS) >= 2*(h_MICRONS + th_MICRONS)) + DCcDs_NS_D_SHIELD_2_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*(h_MICRONS + th_MICRONS) && (s_MICRONS + w_MICRONS + d_MICRONS) >= 2*h_MICRONS) + DCcDs_NS_D_SHIELD_3_2*((s_MICRONS + w_MICRONS + d_MICRONS) < 2*h_MICRONS)
+*
++ DcDw_NS_D_SHIELD_2 = DcplDw_NS_D_SHIELD_2 + DCcDw_NS_D_SHIELD_2 
++ DcDt_NS_D_SHIELD_2 = DcplDt_NS_D_SHIELD_2 + DCcDt_NS_D_SHIELD_2
++ DcDh_NS_D_SHIELD_2 = DcplDh_NS_D_SHIELD_2 + DCcDh_NS_D_SHIELD_2
++ DcDs_NS_D_SHIELD_2 = DcplDs_NS_D_SHIELD_2 + DCcDs_NS_D_SHIELD_2
+*
++ Dcap_NS_D_SHIELD_2 = 2*(-2.0*DcDw_NS_D_SHIELD_2 - 2.0*DcDt_NS_D_SHIELD_2 + 2.0*DcDh_NS_D_SHIELD_2 + 2.0*DcDs_NS_D_SHIELD_2)
++ Dcaps_NS_D_SHIELD_2 = 2*(-2.0*DcDw_NS_D_SHIELD_2 - 2.0*DcDt_NS_D_SHIELD_2 + DcDh_NS_D_SHIELD_2 + 2.0*DcDs_NS_D_SHIELD_2)
++ Dcapg_NS_D_SHIELD_2 = Dcap_NS_D_SHIELD_2 - Dcaps_NS_D_SHIELD_2
+*
++ Dcapnss_NS_D_SHIELD_2 = Dcaps_NS_D_SHIELD_2*1.e6
++ Dcapnsg_NS_D_SHIELD_2 = Dcapg_NS_D_SHIELD_2*1.e6
+* End of second call ...
++ Dcapsns = Dcapsns_TEMP + 0.5*Dcapnss_NS_D_SHIELD_2
++ Dcapgns = Dcapgns_TEMP + 0.5*Dcapnsg_NS_D_SHIELD_2
+*
++ Dcapnss_NS_D_SHIELD = Dcapsns
++ Dcapnsg_NS_D_SHIELD = Dcapgns
+*
++ Dcapnss = Dcapnss_NS_D_NOSHIELD*(shieldsads == 0) + Dcapnss_NS_D_SHIELD*(shieldsads == 1)
++ Dcapnsg = Dcapnsg_NS_D_NOSHIELD*(shieldsads == 0) + Dcapnsg_NS_D_SHIELD*(shieldsads == 1)
+* ===============================================
+* ===============================================
+* DA1-3, delta_R1-3, delta_L1-3, M1-3, and DK1-3 calculations for coupled wires model
+*
+* mm is equal to mu0/(2*pi)
++ mm = 2e-07
++ thl = th_MICRONS 
++ th_gl = th_g_MICRONS
++ wl = w_MICRONS
++ wgl = wg_MICRONS
++ hl = h_MICRONS 
++ wsl = ws
++ sl = s_MICRONS
++ ml = mm
++ dl = d_MICRONS
+*
+* No Shield ...
++ aa_1 = wl
++ bb_1 = wl
++ cc_1 = dl
++ dd_1 = thl
++ abc_d_1 = (aa_1 + bb_1 + cc_1)*(aa_1 + bb_1 + cc_1)*log(aa_1 + bb_1 + cc_1 + dd_1)
++ ac_d_1 = (aa_1 + cc_1)*(aa_1 + cc_1)*log(aa_1 + cc_1 + dd_1)
++ bc_d_1 = (bb_1 + cc_1)*(bb_1 + cc_1)*log(bb_1 + cc_1 + dd_1)
++ c_d_1 = cc_1*cc_1*log(cc_1 + dd_1)
++ F_c_o1 = dd_1*dd_1*(abc_d_1 - ac_d_1 - bc_d_1 + c_d_1 - 3*aa_1*bb_1)*0.5/(thl*wl)/(thl*wl)
+*
++ LO_odd_NOSHIELD = ml*(F_c_o1 + 1.5 - log(thl + wl))
+*       
++ hf_1 = thl + hl
++ wfd_1 = (wgl - dl)*0.5
++ wt_1 = 2*wl + dl
+*       
++ aa_2 = thl
++ bb_2 = th_gl
++ cc_2 = hl
++ dd_2 = wt_1 + hf_1
++ abc_d_2 = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_2)
++ ac_d_2 = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_2)
++ bc_d_2 = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_2)
++ c_d_2 = cc_2*cc_2*log(cc_2 + dd_2)
++ F_c_e11 = dd_2*dd_2*(abc_d_2 - ac_d_2 - bc_d_2 + c_d_2 - 3*aa_2*bb_2)
++ dd_3 = hf_1
++ abc_d_3 = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_3)
++ ac_d_3 = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_3)
++ bc_d_3 = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_3)
++ c_d_3 = cc_2*cc_2*log(cc_2 + dd_3)
++ F_c_e12 = dd_3*dd_3*(abc_d_3 - ac_d_3 - bc_d_3 + c_d_3 - 3*aa_2*bb_2)
++ F_c_e1 = F_c_e11 - F_c_e12
+*					 
++ dd_4 = dl + wfd_1
++ abc_d_4 = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_4)
++ ac_d_4 = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_4)
++ bc_d_4 = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_4)
++ c_d_4 = cc_2*cc_2*log(cc_2 + dd_4)
++ F_c_e21 = dd_4*dd_4*(abc_d_4 - ac_d_4 - bc_d_4 + c_d_4 - 3*aa_2*bb_2)
++ dd_5 = wfd_1
++ abc_d_5 = (aa_2 + bb_2 + cc_2)*(aa_2 + bb_2 + cc_2)*log(aa_2 + bb_2 + cc_2 + dd_5)
++ ac_d_5 = (aa_2 + cc_2)*(aa_2 + cc_2)*log(aa_2 + cc_2 + dd_5)
++ bc_d_5 = (bb_2 + cc_2)*(bb_2 + cc_2)*log(bb_2 + cc_2 + dd_5)
++ c_d_5 = cc_2*cc_2*log(cc_2 + dd_5)
++ F_c_e22 = dd_5*dd_5*(abc_d_5 - ac_d_5 - bc_d_5 + c_d_5 - 3*aa_2*bb_2)
++ F_c_e2 = F_c_e21 - F_c_e22
++ F_c_e3=(F_c_e1 - F_c_e2)/(wl*thl*wgl*th_gl)
+*					
++ aa_3 = wl
++ bb_3 = wl
++ cc_3 = dl
++ dd_6 = thl
++ abc_d_6 = (aa_3 + bb_3 + cc_3)*(aa_3 + bb_3 + cc_3)*log(aa_3 + bb_3 + cc_3 + dd_6)
++ ac_d_6 = (aa_3 + cc_3)*(aa_3 + cc_3)*log(aa_3 + cc_3 + dd_6)
++ bc_d_6 = (bb_3 + cc_3)*(bb_3 + cc_3)*log(bb_3 + cc_3 + dd_6)
++ c_d_6 = cc_3*cc_3*log(cc_3 + dd_6)
++ f_2gap = dd_6*dd_6*(abc_d_6 - ac_d_6 - bc_d_6 + c_d_6 - 3*aa_3*bb_3)*0.5
++ F_c_e4 = f_2gap/(wl*thl*wl*thl) + log(wl + thl) - 1.5
++ F_c_e5 = 2*log(wgl + th_gl) - 3.0
+*        
++ L0_even_NOSHIELD = ml*(-F_c_e4 + F_c_e3 - F_c_e5)
+*        
++ L0_NOSHIELD = l*(L0_even_NOSHIELD + LO_odd_NOSHIELD)/2   
++ M0_NOSHIELD = l*(L0_even_NOSHIELD - LO_odd_NOSHIELD)/2                         
+*
+* Shield ...
++ cond_g = 1.0/(R_g*wgl*th_gl) 
++ cond_sh = 1.0/(R_sh*wsl*thl)  
++ kappa = cond_g/cond_sh
+*
++ aa_4 = wl
++ bb_4 = wl
++ cc_4 = dl
++ dd_7 = thl
++ abc_d_7 = (aa_4 + bb_4 + cc_4)*(aa_4 + bb_4 + cc_4)*log(aa_4 + bb_4 + cc_4 + dd_7)
++ ac_d_7 = (aa_4 + cc_4)*(aa_4 + cc_4)*log(aa_4 + cc_4 + dd_7)
++ bc_d_7 = (bb_4 + cc_4)*(bb_4 + cc_4)*log(bb_4 + cc_4 + dd_7)
++ c_d_7 = cc_4*cc_4*log(cc_4 + dd_7)
++ F_cs_o1 = dd_7*dd_7*(abc_d_7 - ac_d_7 - bc_d_7 + c_d_7 - 3*aa_4*bb_4)*0.5/(thl*wl)/(thl*wl)
++ L0_odd_SHIELD = ml*(F_cs_o1 + 1.5 - log(thl + wl))
+*       
++ wt_2 = 2*wl + dl
++ wf_2 = wsl + sl
++ wfd_2 = (wgl - dl)*0.5
+*
++ F_cs_e1 = (F_cs_o1 - 1.5 + log(thl + wl))*0.5
+*				
++ aa_5 = thl
++ bb_5 = th_gl
++ cc_5 = hl
++ dd_8 = wsl
++ abc_d_8 = (aa_5 + bb_5 + cc_5)*(aa_5 + bb_5 + cc_5)*log(aa_5 + bb_5 + cc_5 + dd_8)
++ ac_d_8 = (aa_5 + cc_5)*(aa_5 + cc_5)*log(aa_5 + cc_5 + dd_8)
++ bc_d_8 = (bb_5 + cc_5)*(bb_5 + cc_5)*log(bb_5 + cc_5 + dd_8)
++ c_d_8 = cc_5*cc_5*log(cc_5 + dd_8)
++ F_cs_e21 = dd_8*dd_8*(abc_d_8 - ac_d_8 - bc_d_8 + c_d_8 - 3*aa_5*bb_5)
++ dd_9 = wgl
++ abc_d_9 = (aa_5 + bb_5 + cc_5)*(aa_5 + bb_5 + cc_5)*log(aa_5 + bb_5 + cc_5 + dd_9)
++ ac_d_9 = (aa_5 + cc_5)*(aa_5 + cc_5)*log(aa_5 + cc_5 + dd_9)
++ bc_d_9 = (bb_5 + cc_5)*(bb_5 + cc_5)*log(bb_5 + cc_5 + dd_9)
++ c_d_9 = cc_5*cc_5*log(cc_5 + dd_9)
++ F_cs_e22 = dd_9*dd_9*(abc_d_9 - ac_d_9 - bc_d_9 + c_d_9 - 3*aa_5*bb_5)
++ dd_10 = wgl - wsl
++ abc_d_10 = (aa_5 + bb_5 + cc_5)*(aa_5 + bb_5 + cc_5)*log(aa_5 + bb_5 + cc_5 + dd_10)
++ ac_d_10 = (aa_5 + cc_5)*(aa_5 + cc_5)*log(aa_5 + cc_5 + dd_10)
++ bc_d_10 = (bb_5 + cc_5)*(bb_5 + cc_5)*log(bb_5 + cc_5 + dd_10)
++ c_d_10 = cc_5*cc_5*log(cc_5 + dd_10)
++ F_cs_e23 = dd_10*dd_10*(abc_d_10 - ac_d_10 - bc_d_10 + c_d_10 - 3*aa_5*bb_5)
++ F_cs_e2 = F_cs_e21 + F_cs_e22 - F_cs_e23
+*
++ s_eq = wgl*th_gl*kappa + 2*wsl*thl
+*					
++ F_cs_e31 = (log(wgl + th_gl) - 1.5)*wgl*th_gl*wgl*th_gl
++ F_cs_e32 = 2*(log(wsl + thl) - 1.5)*wsl*thl*wsl*thl
++ aa_6 = wsl
++ bb_6 = wsl
++ cc_6 = wt_2 + 2*sl
++ dd_11 = thl
++ abc_d_11 = (aa_6 + bb_6 + cc_6)*(aa_6 + bb_6 + cc_6)*log(aa_6 + bb_6 + cc_6 + dd_11)
++ ac_d_11 = (aa_6 + cc_6)*(aa_6 + cc_6)*log(aa_6 + cc_6 + dd_11)
++ bc_d_11 = (bb_6 + cc_6)*(bb_6 + cc_6)*log(bb_6 + cc_6 + dd_11)
++ c_d_11 = cc_6*cc_6*log(cc_6 + dd_11)
++ F_cs_e33 = dd_11*dd_11*(abc_d_11 - ac_d_11 - bc_d_11 + c_d_11 - 3*aa_6*bb_6)
++ F_cs_e3 = (F_cs_e31*kappa*kappa + F_cs_e32+F_cs_e33 + F_cs_e2*kappa)/s_eq/s_eq
+*			
++ aa_7 = wt_2
++ cc_7 = sl
++ abc_d_12 = (aa_7 + bb_6 + cc_7)*(aa_7 + bb_6 + cc_7)*log(aa_7 + bb_6 + cc_7 + dd_11)
++ ac_d_12 = (aa_7 + cc_7)*(aa_7 + cc_7)*log(aa_7 + cc_7 + dd_11)
++ bc_d_12 = (bb_6 + cc_7)*(bb_6 + cc_7)*log(bb_6 + cc_7 + dd_11)
++ c_d_12 = cc_7*cc_7*log(cc_7 + dd_11)
++ f_2gap_1 = dd_11*dd_11*(abc_d_12 - ac_d_12 - bc_d_12 + c_d_12 - 3*aa_7*bb_6)*0.5
++ aa_8 = dl
++ cc_8 = sl + wl
++ abc_d_13 = (aa_8 + bb_6 + cc_8)*(aa_8 + bb_6 + cc_8)*log(aa_8 + bb_6 + cc_8 + dd_11)
++ ac_d_13 = (aa_8 + cc_8)*(aa_8 + cc_8)*log(aa_8 + cc_8 + dd_11)
++ bc_d_13 = (bb_6 + cc_8)*(bb_6 + cc_8)*log(bb_6 + cc_8 + dd_11)
++ c_d_13 = cc_8*cc_8*log(cc_8 + dd_11)
++ f_2gap_2 = dd_11*dd_11*(abc_d_13 - ac_d_13 - bc_d_13 + c_d_13 - 3*aa_8*bb_6)*0.5
++ F_cs_e4 = f_2gap_1 - f_2gap_2
+*					
++ aa_9 = thl
++ bb_9 = th_gl
++ cc_9 = hl
++ dd_12 = wt_2 + wf_2
++ abc_d_14 = (aa_9 + bb_9 + cc_9)*(aa_9 + bb_9 + cc_9)*log(aa_9 + bb_9 + cc_9 + dd_12)
++ ac_d_14 = (aa_9 + cc_9)*(aa_9 + cc_9)*log(aa_9 + cc_9 + dd_12)
++ bc_d_14 = (bb_9 + cc_9)*(bb_9 + cc_9)*log(bb_9 + cc_9 + dd_12)
++ c_d_14 = cc_9*cc_9*log(cc_9 + dd_12)
++ f_2gap_1a = dd_12*dd_12*(abc_d_14 - ac_d_14 - bc_d_14 + c_d_14-3*aa_9*bb_9)*0.5
++ dd_13 = wf_2
++ abc_d_15 = (aa_9 + bb_9 + cc_9)*(aa_9 + bb_9 + cc_9)*log(aa_9 + bb_9 + cc_9 + dd_13)
++ ac_d_15 = (aa_9 + cc_9)*(aa_9 + cc_9)*log(aa_9 + cc_9 + dd_13)
++ bc_d_15 = (bb_9 + cc_9)*(bb_9 + cc_9)*log(bb_9 + cc_9 + dd_13)
++ c_d_15 = cc_9*cc_9*log(cc_9 + dd_13)
++ f_2gap_2a = dd_13*dd_13*(abc_d_15 - ac_d_15 - bc_d_15 + c_d_15 - 3*aa_9*bb_9)*0.5
++ F_cs_e5 = f_2gap_1a - f_2gap_2a
+* 
++ dd_14 = dl + wfd_2
++ abc_d_16 = (aa_9 + bb_9 + cc_9)*(aa_9 + bb_9 + cc_9)*log(aa_9 + bb_9 + cc_9 + dd_14)
++ ac_d_16 = (aa_9 + cc_9)*(aa_9 + cc_9)*log(aa_9 + cc_9 + dd_14)
++ bc_d_16 = (bb_9 + cc_9)*(bb_9 + cc_9)*log(bb_9 + cc_9 + dd_14)
++ c_d_16 = cc_9*cc_9*log(cc_9 + dd_14)
++ f_2gap_3 = dd_14*dd_14*(abc_d_16 - ac_d_16 - bc_d_16 + c_d_16 - 3*aa_9*bb_9)*0.5
++ dd_15 = wfd_2
++ abc_d_17 = (aa_9 + bb_9 + cc_9)*(aa_9 + bb_9 + cc_9)*log(aa_9 + bb_9 + cc_9 + dd_15)
++ ac_d_17 = (aa_9 + cc_9)*(aa_9 + cc_9)*log(aa_9 + cc_9 + dd_15)
++ bc_d_17 = (bb_9 + cc_9)*(bb_9 + cc_9)*log(bb_9 + cc_9 + dd_15)
++ c_d_17 = cc_9*cc_9*log(cc_9 + dd_15)
++ f_2gap_4 = dd_15*dd_15*(abc_d_17 - ac_d_17 - bc_d_17 + c_d_17 - 3*aa_9*bb_9)*0.5
++ F_cs_e6 = f_2gap_3 - f_2gap_4 
++ F_cs_e7 = (2*F_cs_e4 + kappa*(F_cs_e5 - F_cs_e6))/(2*wl*thl*s_eq)
++ L0_even_SHIELD = ml*(-F_cs_e1 + 2*F_cs_e7 - F_cs_e3)*2 
+*        
++ L0_SHIELD = l*(L0_even_SHIELD + L0_odd_SHIELD)/2
++ M0_SHIELD = l*(L0_even_SHIELD - L0_odd_SHIELD)/2
+*
++ LO = L0_NOSHIELD*(shieldsads == 0) + L0_SHIELD*(shieldsads == 1)
++ MO = M0_NOSHIELD*(shieldsads == 0) + M0_SHIELD*(shieldsads == 1)
+*
++ Mtot = K_cap*Ltot
+*
++ sigmas = 1e6/(Rsquare*th_MICRONS) 		
++ sigmag = 1e6/(Rsquare_g*th_g_MICRONS)
+*
++ Dcs_1 = Dcapcs*Epsilon_r*l 
++ Dcg_1 = Dcapcg*Epsilon_r*l 
++ Rcmtot = 0.5*Rpath + Rret
+*
++ Ccmtot = 2*Ctot_NOFILL 
++ K_inf_cm_TEMP = -((tof/Ccmtot)**2)*(sqrt(pi/(mu0*sigmas))*Dcs_1 + sqrt(pi/(mu0*sigmag))*Dcg_1) 
+* 
++ Dcs_2 = Dcapnss*Epsilon_r*l 
++ Dcg_2 = Dcapnsg*Epsilon_r*l 
++ Rsmtot = Rpath + Rret
+* 
++ Cnstot = Cns*Epsilon_r*l 
++ K_inf_ns_TEMP = -((tof/Cnstot)**2)*(sqrt(pi/(mu0*sigmas))*Dcs_2 + sqrt(pi/(mu0*sigmag))*Dcg_2) 
+*    
++ K_inf_rel = K_inf_cm_TEMP/K_inf_ns_TEMP  
++ R_rel = sqrt(Rcmtot/Rsmtot)
++ alpha = sqrt(K_inf_rel/R_rel)
+* 
++ K_inf_cm = K_inf_cm_TEMP*(alpha <= 1) + (K_inf_cm_TEMP/alpha)*(alpha > 1)
++ K_inf_ns = K_inf_ns_TEMP*(alpha <= 1) + (K_inf_ns_TEMP*alpha)*(alpha > 1)
+*
++ K_infinite_1 = K_inf_cm
+*
++ k = ratio 
++ sk = sqrt(k)
++ k2 = k*k
++ k3 = k2*k
++ k4 = k3*k
++ k5 = k4*k
++ k2sk = k2 - 2.0*sk + 1.0
+*
++ fi_1 = (((k3 - 2.0*k + 1.0)/k2sk)*(Rcmtot/(k*K_infinite_1)))**2 
+*
++ delta_Rcm3 = 2.0*sk*Rcmtot*(k4 - 2.0*k3 + k2*sk - 2.0*k2 + 3.0*k + sk - 2.0)/k2sk  
++ delta_Lcm3 = delta_Rcm3/(2.0*pi*fi_1*k5)
++ delta_Rcm2 = 2.0*sk*Rcmtot*(k3 - k2*sk - sk + 1.0)/k2sk 
++ delta_Lcm2 = delta_Rcm2/(2.0*pi*fi_1*k3)
+*
++ Lcm0 = 0.5*(LO + MO)
++ Lcmtot = 0.5*(Ltot + Mtot)
++ delta_Rcm1 = (k - 1)*Rcmtot
++ delta_Lcm1 = Lcm0 - Lcmtot - delta_Lcm2 - delta_Lcm3 
+*  
++ K_infinite_2 = K_inf_ns
+*
++ fi_2 = (((k3 - 2.0*k + 1.0)/k2sk)*(Rsmtot/(k*K_infinite_2)))**2 
+*
++ delta_Rns3 = 2.0*sk*Rsmtot*(k4 - 2.0*k3 + k2*sk - 2.0*k2 + 3.0*k + sk - 2.0)/k2sk  
++ delta_Lns3 = delta_Rns3/(2.0*pi*fi_2*k5)
++ delta_Rns2 = 2.0*sk*Rsmtot*(k3 - k2*sk - sk + 1.0)/k2sk 
++ delta_Lns2 = delta_Rns2/(2.0*pi*fi_2*k3)
+*
++ Lns0 = LO 
++ Lnstot = Ltot 
++ delta_Rns1 = (k - 1)*Rsmtot
++ delta_Lns1 = Lns0 - Lnstot - delta_Lns2 - delta_Lns3 
+*
++ DA1 = (2.0*delta_Rcm1/delta_Rns1 - 1.0)
++ DA2 = (2.0*delta_Rcm2/delta_Rns2 - 1.0)
++ DA3 = (2.0*delta_Rcm3/delta_Rns3 - 1.0)
++ delta_R1 = delta_Rns1
++ delta_R2 = delta_Rns2
++ delta_R3 = delta_Rns3
++ delta_L1 = delta_Lns1
++ delta_L2 = delta_Lns2
++ delta_L3 = delta_Lns3
++ delta_M1 = 2.0*delta_Lcm1 - delta_Lns1
++ delta_M2 = 2.0*delta_Lcm2 - delta_Lns2
++ delta_M3 = 2.0*delta_Lcm3 - delta_Lns3
++ DK1_TEMP = delta_M1/delta_L1 
++ DK1 = DK1_TEMP*(DK1_TEMP <= 1) + 1*(DK1_TEMP > 1)
++ DK2_TEMP = delta_M2/delta_L2 
++ DK2 = DK2_TEMP*(DK2_TEMP <= 1) + 1*(DK2_TEMP > 1)
++ DK3_TEMP = delta_M3/delta_L3 
++ DK3 = DK3_TEMP*(DK3_TEMP <= 1) + 1*(DK3_TEMP > 1)
+* 
+* coupledwires netlist follows ...
+*
+E4 (net01353 net059 net01029 net057) vcvs gain=DA2
+E5 (net057 net094 net059 net092) vcvs gain=DA2
+E6 (net045 net0206 net047 net0160) vcvs gain=DA3
+E7 (net092 net047 net094 net045) vcvs gain=DA3
+E14 (net077 net0243 net065 net0244) vcvs gain=DA1
+E11 (net0152 net083 net0154 net081) vcvs gain=DA3
+E10 (net081 net0148 net083 net0150) vcvs gain=DA3
+E13 (net0244 net0142 net0243 net0140) vcvs gain=DA1
+E20 (net0236 net0129 net0234 net0127) vcvs gain=DA3
+E2 (net069 net01029 net071 net01353) vcvs gain=DA1
+E3 (net01297 net071 net01471 net069) vcvs gain=DA1
+E21 (net0127 vb1 net0129 vb2) vcvs gain=DA3
+E23 (net0248 net0117 net0246 net0115) vcvs gain=DA2
+E17 (net0145 net0141 net0143 net0139) vcvs gain=DA1
+E18 (net0139 net0246 net0141 net0248) vcvs gain=DA1
+E22 (net0115 net0234 net0117 net0236) vcvs gain=DA2
+E9 (net093 net0154 net095 net0152) vcvs gain=DA2
+E8 (net0140 net095 net0142 net093) vcvs gain=DA2
+C139 (net0148 net0150) capacitor c=Cctot/3
+C141 (vshield net0148) capacitor c=Ctot/3
+C142 (vshield vb1) capacitor c=Ctot/6
+C140 (vshield net0150) capacitor c=Ctot/3
+C143 (vshield vb2) capacitor c=Ctot/6
+C144 (vb1 vb2) capacitor c=Cctot/6
+C145 (va1 va2) capacitor c=Cctot/6
+C138 (net0206 net0160) capacitor c=Cctot/3
+C137 (vshield net0160) capacitor c=Ctot/3
+C136 (vshield net0206) capacitor c=Ctot/3
+C108 (vshield va1) capacitor c=Ctot/6
+C107 (vshield va2) capacitor c=Ctot/6
+L250 (net01029 net094) inductor l=delta_L2/3
+L251 (net01353 net092) inductor l=delta_L2/3
+L252 (net092 net0160) inductor l=delta_L3/3
+L253 (net094 net0206) inductor l=delta_L3/3
+L261 (net077 net0140) inductor l=delta_L1/3
+L256 (net0152 net0150) inductor l=delta_L3/3
+L254 (net0142 net0154) inductor l=delta_L2/3
+L255 (net0140 net0152) inductor l=delta_L2/3
+L258 (net0206 net079) inductor l=Ltot/3
+L257 (net0154 net0148) inductor l=delta_L3/3
+L259 (net0160 net0144) inductor l=Ltot/3
+L260 (net065 net0142) inductor l=delta_L1/3
+L262 (net0145 net0248) inductor l=delta_L1/3
+L264 (net0150 net0383) inductor l=Ltot/3
+L263 (net0143 net0246) inductor l=delta_L1/3
+L268 (net0248 net0236) inductor l=delta_L2/3
+L269 (net0246 net0234) inductor l=delta_L2/3
+L265 (net0148 net0242) inductor l=Ltot/3
+L266 (net0234 vb1) inductor l=delta_L3/3
+L267 (net0236 vb2) inductor l=delta_L3/3
+L174 (va1 net0977) inductor l=Ltot/3
+L170 (va2 net01027) inductor l=Ltot/3
+L172 (net01471 net01029) inductor l=delta_L1/3
+L175 (net01297 net01353) inductor l=delta_L1/3
+K100 mutual_inductor coupling=DK2 ind1=L250 ind2=L251
+K101 mutual_inductor coupling=DK3 ind1=L252 ind2=L253
+K103 mutual_inductor coupling=DK3 ind1=L256 ind2=L257
+K105 mutual_inductor coupling=DK1 ind1=L260 ind2=L261
+K104 mutual_inductor coupling=K_cap ind1=L258 ind2=L259
+K102 mutual_inductor coupling=DK2 ind1=L254 ind2=L255
+K109 mutual_inductor coupling=DK2 ind1=L268 ind2=L269
+K106 mutual_inductor coupling=DK1 ind1=L262 ind2=L263
+K107 mutual_inductor coupling=K_cap ind1=L264 ind2=L265
+K108 mutual_inductor coupling=DK3 ind1=L266 ind2=L267
+K60 mutual_inductor coupling=K_cap ind1=L174 ind2=L170
+K61 mutual_inductor coupling=DK1 ind1=L172 ind2=L175
+R250 (net059 net092) resistor r=delta_R2/3
+R251 (net01029 net057) resistor r=delta_R2/3
+R252 (net094 net045) resistor r=delta_R3/3
+R253 (net047 net0160) resistor r=delta_R3/3
+R256 (net0154 net081) resistor r=delta_R3/3
+R260 (net0243 net0140) resistor r=delta_R1/3
+R258 (net0144 net077) resistor r=Rtot/3
+R259 (net065 net0244) resistor r=delta_R1/3
+R255 (net0142 net093) resistor r=delta_R2/3
+R254 (net095 net0152) resistor r=delta_R2/3
+R266 (net0129 vb2) resistor r=delta_R3/3
+R257 (net083 net0150) resistor r=delta_R3/3
+R261 (net079 net065) resistor r=Rtot/3
+R269 (net0117 net0236) resistor r=delta_R2/3
+R268 (net0246 net0115) resistor r=delta_R2/3
+R267 (net0234 net0127) resistor r=delta_R3/3
+R262 (net0242 net0143) resistor r=Rtot/3
+R264 (net0143 net0139) resistor r=delta_R1/3
+R263 (net0141 net0248) resistor r=delta_R1/3
+R265 (net0383 net0145) resistor r=Rtot/3
+R177 (net01027 net01297) resistor r=Rtot/3
+R172 (net01471 net069) resistor r=delta_R1/3
+R176 (net071 net01353) resistor r=delta_R1/3
+R173 (net0977 net01471) resistor r=Rtot/3
+*
+ends coupledwires

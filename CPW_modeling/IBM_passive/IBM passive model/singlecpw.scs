@@ -1,0 +1,1024 @@
+* Path, Component, bicmos8hp/rel/Spectre/models/singlecpw.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.5 12/10/29 09:38:21
+*
+*>  IBM bicmos8hp "singlecpw" line model
+*
+***************************************************************************
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2012 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+simulator lang = spectre
+subckt singlecpw (va vb vshield)
+parameters
+* Description of BiCMOS8HP singlecpw model
+*
+* The basic single coplanar T-line structure is
+* a metal signal wire of the width W between two coplnar ground wires
+* of the width Ws = W (return path wires), above the silicon substrate.
+* All metal levels are supported for the coplanar lines usage.
+*
+* Single coplanar T-line cross section
+* ====================================
+*
+* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX Crossover (optional)
+*
+*          Ws           W           Ws
+*       <------>    <------>    <------>
+*        ------      ------      ------
+*       |Return|  s |      |  s |Return|
+*       | path |<-->|Signal|<-->| path |      Signal Layer
+*       |      |    |      |    |      |
+*        ------      ------      ------
+*
+* XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  Crossunder (optional)
+*
+* -------------------------------------------------
+* /////////////// SILICON  SUBSTRATE //////////////
+* /////////////////////////////////////////////////
+*
+* This model describes the frequency dependent impedance,
+* attenuation and phase shift in a high bandwidth.
+* The model considers the  skin and proximity effects in the signal wire
+* plus coplanar return path wires.
+* The model considers the conductive silicon substrate effect on both
+* the signal attenuation and capacitance (frequency dependent capacitance).
+* The model is implemented in multi-segment RLC filter networks
+* and is passive by construction.
+* The model works both in time and frequency domains in all
+* simulation analysis types (dc, ac, sp, pss ...)
+*
+* The model considers the
+* standard copper line cheesing process, and
+* assumes super cheesing for Wg > 50[um].
+*
+* The T-line shielding should be connected
+* in the given design in a manner which allows the return path
+* current to flow through them.
+* T-line Pcells can be connected to form bends/junctions,
+* provided that the bends/junctions are shielded in the same manner
+* as these T-lines are. In most practical cases, such shielded bends/junctions
+* have much smaller effect than the T-lines themselves.
+*
+* The model considers multi-layer dielectric structure
+* and allows to consider the pattern metal fill.
+* ===============================================
+* singlecpw input parameters
+*
+* bwmax           --> Maximum signal bandwidth used, in GHz.
+* l               --> Length of the singlecpw signal line, in meters.
+* w               --> Width of the singlecpw signal line, in meters.
+* s               --> Seperation between singlecpw signal wire and each of the two return path wires, in meters.
+* layer_sig       --> Metal layer of the singlecpw signal wire:  See table immediately below.
+* crosstype       --> crossing type:  0="full plane" and 1="custom"
+* plane           --> crossing condition:  0="none", 1="above", 2="below", 3="both"
+* layer_bot       --> Metal layer of crossunder:  See table immmediately below.
+* layer_top       --> Metal layer of crossover:  See table immmediately below.
+* crosscapfactor  --> Crossing Capacitance Factor, which estimates the impact of crossing lines:  0<=crosscapfactor<=1
+* patternfill     --> 0 disables pattern fill modeling, 1 enables it.
+* siliconlosses   --> Enables modeling of silicon loss for custom capacitance case, 0 disabled, 1 enabled.
+* C_cust          --> User provided capacitance per unit length.
+*
+* NOTES:
+*
+*             wireopt
+*  5AM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 AM=7
+*              211   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  6AM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 AM=7
+*              311   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  7AM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 AM=7
+*              411   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 XXXX
+*               ---------------------------------------------------
+*  6DM               | layer -> XXXX M2=2 XXXX XXXX MQ=5 LY=6 E1=8 MA=9
+*              213   | over  -> M1=1 M2=2 XXXX XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  7DM               | layer -> XXXX M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 MA=9
+*              313   | over  -> M1=1 M2=2 M3=3 XXXX MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*  8DM               | layer -> XXXX M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 MA=9
+*              413   | over  -> M1=1 M2=2 M3=3 M4=4 MQ=5 LY=6 E1=8 XXXX
+*               --------------------------------------------------------
+*
+* singlecpw default input parameters
++ bwmax          = 40
++ l              = 100.0e-6
++ w              = 4.0e-6
++ s              = 6.0e-6
++ patternfill    = 1
++ layer_sig      = 2
++ crosstype      = 0
++ plane          = 0
++ layer_bot      = 1
++ layer_top      = 5
++ crosscapfactor = 1
++ siliconlosses  = 0
++ C_cust         = 1.0e-10
+* ===============================================
+* singlewire model constants
++ ratio     = 3.14159
++ E0        = 8.8542e-12
++ Epsilon_s = 11.9
++ denfill   = 0.45
++ Tref      = 25.0
+* ===============================================
+* Conversion of Meters to Microns for input parameters
++ l_MICRONS = l*1.0e+6
++ w_MICRONS = w*1.0e+6
++ s_MICRONS = s*1.0e+6
+* ===============================================
+* Begin COMMON
+*
+* Begin metal layer stack
+*
++ si_top = 0.0
+*
+* Metal Option : wireopt = 211 (5AM)
++ am5    = wireopt==211
++ m1bot1 = 0.95e-06
++ m1top1 = m1bot1 + m1t
++ m2bot1 = m1top1 + m1m2t
++ m2top1 = m2bot1 + m2t
++ mqbot1 = m2top1 + m2mqt
++ mqtop1 = mqbot1 + mqt
++ lybot1 = mqtop1 + mqlyt
++ lytop1 = lybot1 + lyt
++ ambot1 = lytop1 + lyamt
++ amtop1 = ambot1 + amt
+*
+* Metal Option : wireopt = 311 (6AM)
++ am6    = wireopt==311
++ m1bot2 = 0.95e-06
++ m1top2 = m1bot2 + m1t
++ m2bot2 = m1top2 + m1m2t
++ m2top2 = m2bot2 + m2t
++ m3bot2 = m2top2 + m2m3t
++ m3top2 = m3bot2 + m3t
++ mqbot2 = m3top2 + m3mqt
++ mqtop2 = mqbot2 + mqt
++ lybot2 = mqtop2 + mqlyt
++ lytop2 = lybot2 + lyt
++ ambot2 = lytop2 + lyamt
++ amtop2 = ambot2 + amt
+*
+* Metal Option : wireopt = 411 (7AM)
++ am7    = wireopt==411
++ m1bot3 = 0.95e-06
++ m1top3 = m1bot3 + m1t
++ m2bot3 = m1top3 + m1m2t
++ m2top3 = m2bot3 + m2t
++ m3bot3 = m2top3 + m2m3t
++ m3top3 = m3bot3 + m3t
++ m4bot3 = m3top3 + m3m4t
++ m4top3 = m4bot3 + m4t
++ mqbot3 = m4top3 + m4mqt
++ mqtop3 = mqbot3 + mqt
++ lybot3 = mqtop3 + mqlyt
++ lytop3 = lybot3 + lyt
++ ambot3 = lytop3 + lyamt
++ amtop3 = ambot3 + amt
+*
+* Metal Option : wireopt = 213 (6DM)
++ dm6    = wireopt==213
++ m1bot4 = 0.95e-06
++ m1top4 = m1bot4 + m1t
++ m2bot4 = m1top4 + m1m2t
++ m2top4 = m2bot4 + m2t
++ mqbot4 = m2top4 + m2mqt
++ mqtop4 = mqbot4 + mqt
++ lybot4 = mqtop4 + mqlyt
++ lytop4 = lybot4 + lyt
++ e1bot4 = lytop4 + lye1t
++ e1top4 = e1bot4 + e1t
++ mabot4 = e1top4 + e1mat
++ matop4 = mabot4 + mat
+*
+* Metal Option : wireopt = 313 (7DM)
++ dm7    = wireopt==313
++ m1bot5 = 0.95e-06
++ m1top5 = m1bot5 + m1t
++ m2bot5 = m1top5 + m1m2t
++ m2top5 = m2bot5 + m2t
++ m3bot5 = m2top5 + m2m3t
++ m3top5 = m3bot5 + m3t
++ mqbot5 = m3top5 + m3mqt
++ mqtop5 = mqbot5 + mqt
++ lybot5 = mqtop5 + mqlyt
++ lytop5 = lybot5 + lyt
++ e1bot5 = lytop5 + lye1t
++ e1top5 = e1bot5 + e1t
++ mabot5 = e1top5 + e1mat
++ matop5 = mabot5 + mat
+*
+* Metal Option : wireopt = 413 (8DM)
++ dm8    = wireopt==413
++ m1bot6 = 0.95e-06
++ m1top6 = m1bot6 + m1t
++ m2bot6 = m1top6 + m1m2t
++ m2top6 = m2bot6 + m2t
++ m3bot6 = m2top6 + m2m3t
++ m3top6 = m3bot6 + m3t
++ m4bot6 = m3top6 + m3m4t
++ m4top6 = m4bot6 + m4t
++ mqbot6 = m4top6 + m4mqt
++ mqtop6 = mqbot6 + mqt
++ lybot6 = mqtop6 + mqlyt
++ lytop6 = lybot6 + lyt
++ e1bot6 = lytop6 + lye1t
++ e1top6 = e1bot6 + e1t
++ mabot6 = e1top6 + e1mat
++ matop6 = mabot6 + mat
+*
++ m1bot = (m1bot1*am5 + m1bot2*am6 + m1bot3*am7 + m1bot4*dm6 + m1bot5*dm7 + m1bot6*dm8)*1.0e06
++ m1top = (m1top1*am5 + m1top2*am6 + m1top3*am7 + m1top4*dm6 + m1top5*dm7 + m1top6*dm8)*1.0e06
++ m2bot = (m2bot1*am5 + m2bot2*am6 + m2bot3*am7 + m2bot4*dm6 + m2bot5*dm7 + m2bot6*dm8)*1.0e06
++ m2top = (m2top1*am5 + m2top2*am6 + m2top3*am7 + m2top4*dm6 + m2top5*dm7 + m2top6*dm8)*1.0e06
++ m3bot = (   0.0*am5 + m3bot2*am6 + m3bot3*am7 +    0.0*dm6 + m3bot5*dm7 + m3bot6*dm8)*1.0e06
++ m3top = (   0.0*am5 + m3top2*am6 + m3top3*am7 +    0.0*dm6 + m3top5*dm7 + m3top6*dm8)*1.0e06
++ m4bot = (   0.0*am5 +    0.0*am6 + m4bot3*am7 +    0.0*dm6 +    0.0*dm7 + m4bot6*dm8)*1.0e06
++ m4top = (   0.0*am5 +    0.0*am6 + m4top3*am7 +    0.0*dm6 +    0.0*dm7 + m4top6*dm8)*1.0e06
++ mqbot = (mqbot1*am5 + mqbot2*am6 + mqbot3*am7 + mqbot4*dm6 + mqbot5*dm7 + mqbot6*dm8)*1.0e06
++ mqtop = (mqtop1*am5 + mqtop2*am6 + mqtop3*am7 + mqtop4*dm6 + mqtop5*dm7 + mqtop6*dm8)*1.0e06
++ lybot = (lybot1*am5 + lybot2*am6 + lybot3*am7 + lybot4*dm6 + lybot5*dm7 + lybot6*dm8)*1.0e06
++ lytop = (lytop1*am5 + lytop2*am6 + lytop3*am7 + lytop4*dm6 + lytop5*dm7 + lytop6*dm8)*1.0e06
++ ambot = (ambot1*am5 + ambot2*am6 + ambot3*am7)*1.0e06
++ amtop = (amtop1*am5 + amtop2*am6 + amtop3*am7)*1.0e06
++ e1bot =                                        (e1bot4*dm6 + e1bot5*dm7 + e1bot6*dm8)*1.0e06
++ e1top =                                        (e1top4*dm6 + e1top5*dm7 + e1top6*dm8)*1.0e06
++ mabot =                                        (mabot4*dm6 + mabot5*dm7 + mabot6*dm8)*1.0e06
++ matop =                                        (matop4*dm6 + matop5*dm7 + matop6*dm8)*1.0e06
+*
+* End metal layer stack
+* ================================================
+* ================================================
+* Determine the effective dielectric constants and metal fill parameters.
+*
++ m1_eps_side = 4.078
++ m2_eps_side = 3.6
++ m3_eps_side = 3.6
++ m4_eps_side = 3.6
++ mq_eps_side = 3.6
++ ly_eps_side = 4.1
++ am_eps_side = 4.1
++ e1_eps_side = 4.1
++ ma_eps_side = 4.1
+*	
++ m1_eps_side_over = 4.47*am5 + 4.47*am6 + 4.47*am7 + 4.47*dm6 + 4.47*dm7 + 4.47*dm8
++ m2_eps_side_over = 4.59*am5 + 4.47*am6 + 4.47*am7 + 4.59*dm6 + 4.47*dm7 + 4.47*dm8
++ m3_eps_side_over = 4.47*am5 + 4.59*am6 + 4.47*am7 + 4.47*dm6 + 4.59*dm7 + 4.47*dm8
++ m4_eps_side_over = 4.59*am5 + 4.59*am6 + 4.59*am7 + 4.59*dm6 + 4.59*dm7 + 4.59*dm8
++ mq_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ly_eps_side_over = 4.13*am5 + 4.13*am6 + 4.13*am7 + 4.14*dm6 + 4.14*dm7 + 4.14*dm8
++ am_eps_side_over = 3.81*am5 + 3.81*am6 + 3.81*am7
++ e1_eps_side_over =                                  4.13*dm6 + 4.13*dm7 + 4.13*dm8
++ ma_eps_side_over =                                  3.81*dm6 + 3.81*dm7 + 3.81*dm8
+*
++ m1_bot_4eps = 0.2267*am5 + 0.2267*am6 + 0.2267*am7 + 0.2267*dm6 + 0.2267*dm7 + 0.2267*dm8
++ m1_top_4eps = 0.3035*am5 + 0.3035*am6 + 0.3035*am7 + 0.3035*dm6 + 0.3035*dm7 + 0.3035*dm8
++ m2_bot_4eps = 0.3858*am5 + 0.3858*am6 + 0.3858*am7 + 0.3858*dm6 + 0.3858*dm7 + 0.3858*dm8
++ m2_top_4eps = 0.4747*am5 + 0.4747*am6 + 0.4747*am7 + 0.4747*dm6 + 0.4747*dm7 + 0.4747*dm8
++ m3_bot_4eps = 0.0000*am5 + 0.5571*am6 + 0.5571*am7 + 0.0000*dm6 + 0.5571*dm7 + 0.5571*dm8
++ m3_top_4eps = 0.0000*am5 + 0.6460*am6 + 0.6460*am7 + 0.0000*dm6 + 0.6460*dm7 + 0.6460*dm8
++ m4_bot_4eps = 0.0000*am5 + 0.0000*am6 + 0.7283*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.7283*dm8
++ m4_top_4eps = 0.0000*am5 + 0.0000*am6 + 0.8172*am7 + 0.0000*dm6 + 0.0000*dm7 + 0.8172*dm8
++ mq_bot_4eps = 0.6404*am5 + 0.8117*am6 + 0.9829*am7 + 0.6404*dm6 + 0.8117*dm7 + 0.9829*dm8
++ mq_top_4eps = 0.7932*am5 + 0.9644*am6 + 1.1357*am7 + 0.7932*dm6 + 0.9644*dm7 + 1.1357*dm8
++ ly_bot_4eps = 1.7861*am5 + 1.9574*am6 + 2.1286*am7 + 1.7861*dm6 + 1.9574*dm7 + 2.1286*dm8
++ ly_top_4eps = 2.0910*am5 + 2.2622*am6 + 2.4335*am7 + 2.0910*dm6 + 2.2622*dm7 + 2.4335*dm8
++ am_bot_4eps = 3.0809*am5 + 3.2521*am6 + 3.4234*am7
++ am_top_4eps = 4.0456*am5 + 4.2168*am6 + 4.3880*am7
++ e1_bot_4eps =                                        3.0809*dm6 + 3.2521*dm7 + 3.4234*dm8
++ e1_top_4eps =                                        3.8055*dm6 + 3.9768*dm7 + 4.1480*dm8
++ ma_bot_4eps =                                        4.7911*dm6 + 4.9624*dm7 + 5.1336*dm8
++ ma_top_4eps =                                        5.7558*dm6 + 5.9271*dm7 + 6.0983*dm8
+*
++ m1_bot_fill = 0.00*am5 + 0.00*am6 + 0.00*am7 + 0.00*dm6 + 0.00*dm7 + 0.00*dm8
++ m1_top_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_bot_fill = 0.29*am5 + 0.29*am6 + 0.29*am7 + 0.29*dm6 + 0.29*dm7 + 0.29*dm8
++ m2_top_fill = 0.61*am5 + 0.61*am6 + 0.61*am7 + 0.61*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_bot_fill = 0.00*am5 + 0.61*am6 + 0.61*am7 + 0.00*dm6 + 0.61*dm7 + 0.61*dm8
++ m3_top_fill = 0.00*am5 + 0.93*am6 + 0.93*am7 + 0.00*dm6 + 0.93*dm7 + 0.93*dm8
++ m4_bot_fill = 0.00*am5 + 0.00*am6 + 0.93*am7 + 0.00*dm6 + 0.00*dm7 + 0.93*dm8
++ m4_top_fill = 0.00*am5 + 0.00*am6 + 1.25*am7 + 0.00*dm6 + 0.00*dm7 + 1.25*dm8
++ mq_bot_fill = 0.61*am5 + 0.93*am6 + 1.25*am7 + 0.61*dm6 + 0.93*dm7 + 1.25*dm8
++ mq_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ly_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7 + 1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ am_bot_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ am_top_fill = 1.16*am5 + 1.48*am6 + 1.80*am7
++ e1_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ e1_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_bot_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
++ ma_top_fill =                                  1.16*dm6 + 1.48*dm7 + 1.80*dm8
+*
++ crossover_top_fill = m1_top_fill*(layer_top == 1)+m2_top_fill*(layer_top == 2)+m3_top_fill*(layer_top == 3)+m4_top_fill*(layer_top == 4)+mq_top_fill*(layer_top == 5)+ly_top_fill*(layer_top == 6)+am_top_fill*(layer_top == 7)+e1_top_fill*(layer_top == 8)+ma_top_fill*(layer_top == 9)
++ signal_top_fill = m1_top_fill*(layer_sig == 1)+m2_top_fill*(layer_sig == 2)+m3_top_fill*(layer_sig == 3)+m4_top_fill*(layer_sig == 4)+mq_top_fill*(layer_sig == 5)+ly_top_fill*(layer_sig == 6)+am_top_fill*(layer_sig == 7)+e1_top_fill*(layer_sig == 8)+ma_top_fill*(layer_sig == 9)
++ crossunder_top_fill = m1_top_fill*(layer_bot == 1)+m2_top_fill*(layer_bot == 2)+m3_top_fill*(layer_bot == 3)+m4_top_fill*(layer_bot == 4)+mq_top_fill*(layer_bot == 5)+ly_top_fill*(layer_bot == 6)+am_top_fill*(layer_bot == 7)+e1_top_fill*(layer_bot == 8)+ma_top_fill*(layer_bot == 9)
+*
++ crossover_bot_fill = m1_bot_fill*(layer_top == 1)+m2_bot_fill*(layer_top == 2)+m3_bot_fill*(layer_top == 3)+m4_bot_fill*(layer_top == 4)+mq_bot_fill*(layer_top == 5)+ly_bot_fill*(layer_top == 6)+am_bot_fill*(layer_top == 7)+e1_bot_fill*(layer_top == 8)+ma_bot_fill*(layer_top == 9)
++ signal_bot_fill = m1_bot_fill*(layer_sig == 1)+m2_bot_fill*(layer_sig == 2)+m3_bot_fill*(layer_sig == 3)+m4_bot_fill*(layer_sig == 4)+mq_bot_fill*(layer_sig == 5)+ly_bot_fill*(layer_sig == 6)+am_bot_fill*(layer_sig == 7)+e1_bot_fill*(layer_sig == 8)+ma_bot_fill*(layer_sig == 9)
++ crossunder_bot_fill = m1_bot_fill*(layer_bot == 1)+m2_bot_fill*(layer_bot == 2)+m3_bot_fill*(layer_bot == 3)+m4_bot_fill*(layer_bot == 4)+mq_bot_fill*(layer_bot == 5)+ly_bot_fill*(layer_bot == 6)+am_bot_fill*(layer_bot == 7)+e1_bot_fill*(layer_bot == 8)+ma_bot_fill*(layer_bot == 9)
+*
++ wfill = -1.0*(layer_sig == 1) + 0.9*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 1.2*(layer_sig == 5) + 0.0*(layer_sig == 6) + 0.0*(layer_sig == 7) + 0.0*(layer_sig == 8)+ 0.0*(layer_sig == 9) // For testsites: 6.0*(layer_sig == 8)
++ sfill = -2.0*(layer_sig == 1) + 0.3*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.4*(layer_sig == 5) + -1.0*(layer_sig == 6) + -1.0*(layer_sig == 7) + -1.0*(layer_sig == 8) + -1.0*(layer_sig == 9)  // For testsites: 2.0*(layer_sig == 8)
++ sf2sh = -1.0*(layer_sig == 1) + 0.4*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.8*(layer_sig == 5) + -1.0*(layer_sig == 6) + -1.0*(layer_sig == 7) + -1.0*(layer_sig == 8) + -1.0*(layer_sig == 9)  // For testsites: 4.0*(layer_sig == 8)
++ denfillc = (denfill*(wfill - sfill)/(wfill*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4 || layer_sig == 5) + -1.0*(layer_sig == 1 || layer_sig == 6 || layer_sig == 7 || layer_sig == 8 || layer_sig == 9))*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4 || layer_sig == 5)) + 0.0*(layer_sig == 6 || layer_sig == 7 || layer_sig == 8 || layer_sig == 9)
+*
+* ===============================================
+* Calculation of feedback parameters, including wire widths.
+*
++ ELB = -0.0115*(layer_sig == 1) + 0.00*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + -0.022*(layer_sig == 5) + 0.0000*(layer_sig == 6) + 0.00*(layer_sig == 7) + 0.00*(layer_sig == 8) + 0.00*(layer_sig == 9)
++ PLB =  0.0000*(layer_sig == 1) + 0.01*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) +  0.010*(layer_sig == 5) + 0.0625*(layer_sig == 6) + 0.00*(layer_sig == 8) + (-1*0.08)*(((layer_sig == 7) + (layer_sig == 9))*(s_MICRONS >= 12.5)) + (-1*(((0.028*s_MICRONS)-0.19)/2))*(((layer_sig == 7) + (layer_sig == 9))*(s_MICRONS < 12.5))
++ Wo = 1.2*(layer_sig == 1) + 1.8*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 2.4*(layer_sig == 5) + 0*(layer_sig == 6) + 0*(layer_sig == 7) + 0*(layer_sig == 8) + 0*(layer_sig == 9)
++ Wmin = 0.16*(layer_sig == 1) + 0.20*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.40*(layer_sig == 5) + 1.52*(layer_sig == 6) + 2.0*(layer_sig == 7) + 1.5*(layer_sig == 8) + 2.0*(layer_sig == 9)
++ Rsquare = m1rs*(layer_sig == 1) + m2rs*(layer_sig == 2) + m3rs*(layer_sig == 3) + m4rs*(layer_sig == 4) + mqrs*(layer_sig == 5) + lyrs*(layer_sig == 6) + amrs*(layer_sig == 7) + e1rs*(layer_sig == 8) + mars*(layer_sig == 9)
++ TCR = tm1rs*(layer_sig == 1) + tm2rs*(layer_sig == 2) + tm3rs*(layer_sig == 3) + tm4rs*(layer_sig == 4) + tmqrs*(layer_sig == 5) + tlyrs*(layer_sig == 6) + tamrs*(layer_sig == 7) + te1rs*(layer_sig == 8) + tmars*(layer_sig == 9)
+*
++ Kslot = 0.5
++ MxPlaneLim = 50
+*
++ ws = Wmin
+*
++ w_c = w_MICRONS + 2*ELB + 2*PLB
+*
++ Wlim = 1.4*(layer_sig == 1) + 1.4*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 2.4*(layer_sig == 5) + 0*(layer_sig == 6) + 0*(layer_sig == 7) + 0*(layer_sig == 8) + 0*(layer_sig == 9)
++ Cheese = 0.7*(layer_sig == 1) + 0.7*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.7*(layer_sig == 5) + 1*(layer_sig == 6) + 1*(layer_sig == 7) + 1*(layer_sig == 8) + 1*(layer_sig == 9)
++ superCheese = 0.52*(layer_sig == 1) + 0.52*(layer_sig == 2 || layer_sig == 3 || layer_sig == 4) + 0.53*(layer_sig == 5) + 1*(layer_sig == 6) + 1*(layer_sig == 7) + 1*(layer_sig == 8) + 1*(layer_sig == 9)
++ cheeseK =  (((Wlim != 0) || (w_MICRONS > Wo)) && (w_MICRONS > MxPlaneLim)) ? superCheese : Cheese
++ delta_Whole_CHEESING = ((Wlim == 0) || (w_MICRONS <= Wo)) ? 0 : (cheeseK - 1)*(w_c - Wlim)
+*
++ delta_Whole = delta_Whole_CHEESING
+*
++ w_eff = w_c + delta_Whole
+*
++ Rpath = l*1e06*(Rsquare/w_eff)*(1 + TCR*(temp - Tref))
++ Rret = 0.5*Rpath
++ Rtot = Rpath + Rret
+*
+* End COMMON
+* ===============================================
+* ===============================================
+*
+* Begin High-Frequency Limit and Static Capacitance Calculation
+* Capacitance Model can be either "full plane" or "custom" which is determined
+* by the variable "crosstype", where "crosstype" = 0 (full plane) or 1 (custom).
+* If "full plane," then one of the crossing types "none/above/below/both" is
+* invoked by the variable "plane", where "plane" = 0 (none), 1 (above), 2 (below),
+* or 3 (both).
+*
+* Calculation of Capacitance for "full plane" crossing type (crosstype = "full plane")
+*
+* crossing type = none  -> signal-substrate (hc, th)
+* crossing type = above -> signal-substrate (h_over, h_under = hc)
+* crossing type = below -> signal-substrate (h_over, h_under)
+* crossing type = both  -> signal-substrate (h_under, th)
+*	hc = distance between signal layer bottom and top of substrate.
+*	th = signal layer thickness.
+*	h_over = distance between bottom of crossover layer and top of signal layer.
+*	h_under = distance bottom of signal layer and top of crossunder layer.
+*
+* First, determine hc, h_fill, and th ...
++ hc = m1bot*(layer_sig == 1) + m2bot*(layer_sig == 2) + m3bot*(layer_sig == 3) + m4bot*(layer_sig == 4) + mqbot*(layer_sig == 5) + lybot*(layer_sig == 6) + ambot*(layer_sig == 7)+ e1bot*(layer_sig == 8) + mabot*(layer_sig == 9) - si_top
++ h_fill = m1_bot_fill*(layer_sig == 1) + m2_bot_fill*(layer_sig == 2) + m3_bot_fill*(layer_sig == 3) + m4_bot_fill*(layer_sig == 4) + mq_bot_fill*(layer_sig == 5) + ly_bot_fill*(layer_sig == 6) + am_bot_fill*(layer_sig == 7) + e1_bot_fill*(layer_sig == 8) + ma_bot_fill*(layer_sig == 9) - si_top
++ th = (m1top - m1bot)*(layer_sig == 1) + (m2top - m2bot)*(layer_sig == 2) + (m3top - m3bot)*(layer_sig == 3) + (m4top - m4bot)*(layer_sig == 4) + (mqtop - mqbot)*(layer_sig == 5) + (lytop - lybot)*(layer_sig == 6) + (amtop - ambot)*(layer_sig == 7) + (e1top - e1bot)*(layer_sig == 8) + (matop - mabot)*(layer_sig == 9)
+*
++ h_by_eps = m1_bot_4eps*(layer_sig == 1) + m2_bot_4eps*(layer_sig == 2) + m3_bot_4eps*(layer_sig == 3) + m4_bot_4eps*(layer_sig == 4) + mq_bot_4eps*(layer_sig == 5) + ly_bot_4eps*(layer_sig == 6) + am_bot_4eps*(layer_sig == 7) + e1_bot_4eps*(layer_sig == 8) + ma_bot_4eps*(layer_sig == 9)
++ Epsilon_r = hc/h_by_eps
+*
++ eps_side = m1_eps_side*(layer_sig == 1) + m2_eps_side*(layer_sig == 2) + m3_eps_side*(layer_sig == 3) + m4_eps_side*(layer_sig == 4) + mq_eps_side*(layer_sig == 5) + ly_eps_side*(layer_sig == 6) + am_eps_side*(layer_sig == 7) + e1_eps_side*(layer_sig == 8) + ma_eps_side*(layer_sig == 9)
++ eps_side_over = m1_eps_side_over*(layer_sig == 1) + m2_eps_side_over*(layer_sig == 2) + m3_eps_side_over*(layer_sig == 3) + m4_eps_side_over*(layer_sig == 4) + mq_eps_side_over*(layer_sig == 5) + ly_eps_side_over*(layer_sig == 6) + am_eps_side_over*(layer_sig == 7) + e1_eps_side_over*(layer_sig == 8) + ma_eps_side_over*(layer_sig == 9)
+*
++ Epsilon_r_side = eps_side
++ Epsilon_r_ratio = Epsilon_r_side/Epsilon_r
+*
++ crossover_bot = m1bot*(layer_top == 1) + m2bot*(layer_top == 2) + m3bot*(layer_top == 3) + m4bot*(layer_top == 4) + mqbot*(layer_top == 5) + lybot*(layer_top == 6) + ambot*(layer_top == 7) + e1bot*(layer_top == 8) + mabot*(layer_top == 9)
++ crossover_top = m1top*(layer_top == 1) + m2top*(layer_top == 2) + m3top*(layer_top == 3) + m4top*(layer_top == 4) + mqtop*(layer_top == 5) + lytop*(layer_top == 6) + amtop*(layer_top == 7) + e1top*(layer_top == 8) + matop*(layer_top == 9)
++ signal_bot = m1bot*(layer_sig == 1) + m2bot*(layer_sig == 2) + m3bot*(layer_sig == 3) + m4bot*(layer_sig == 4) + mqbot*(layer_sig == 5) + lybot*(layer_sig == 6) + ambot*(layer_sig == 7) + e1bot*(layer_sig == 8) + mabot*(layer_sig == 9)
++ signal_top = m1top*(layer_sig == 1) + m2top*(layer_sig == 2) + m3top*(layer_sig == 3) + m4top*(layer_sig == 4) + mqtop*(layer_sig == 5) + lytop*(layer_sig == 6) + amtop*(layer_sig == 7) + e1top*(layer_sig == 8) + matop*(layer_sig == 9)
++ crossunder_bot = m1bot*(layer_bot == 1) + m2bot*(layer_bot == 2) + m3bot*(layer_bot == 3) + m4bot*(layer_bot == 4) + mqbot*(layer_bot == 5) + lybot*(layer_bot == 6) + ambot*(layer_bot == 7) + e1bot*(layer_bot == 8) + mabot*(layer_bot == 9)
++ crossunder_top = m1top*(layer_bot == 1) + m2top*(layer_bot == 2) + m3top*(layer_bot == 3) + m4top*(layer_bot == 4) + mqtop*(layer_bot == 5) + lytop*(layer_bot == 6) + amtop*(layer_bot == 7) + e1top*(layer_bot == 8) + matop*(layer_bot == 9)
+*
++ crossover_bot_4eps = m1_bot_4eps*(layer_top == 1) + m2_bot_4eps*(layer_top == 2) + m3_bot_4eps*(layer_top == 3) + m4_bot_4eps*(layer_top == 4) + mq_bot_4eps*(layer_top == 5) + ly_bot_4eps*(layer_top == 6) + am_bot_4eps*(layer_top == 7) + e1_bot_4eps*(layer_top == 8) + ma_bot_4eps*(layer_top == 9)
++ crossover_top_4eps = m1_top_4eps*(layer_top == 1) + m2_top_4eps*(layer_top == 2) + m3_top_4eps*(layer_top == 3) + m4_top_4eps*(layer_top == 4) + mq_top_4eps*(layer_top == 5) + ly_top_4eps*(layer_top == 6) + am_top_4eps*(layer_top == 7) + e1_top_4eps*(layer_top == 8) + ma_top_4eps*(layer_top == 9)
++ signal_bot_4eps = m1_bot_4eps*(layer_sig == 1) + m2_bot_4eps*(layer_sig == 2) + m3_bot_4eps*(layer_sig == 3) + m4_bot_4eps*(layer_sig == 4) + mq_bot_4eps*(layer_sig == 5) + ly_bot_4eps*(layer_sig == 6) + am_bot_4eps*(layer_sig == 7) + e1_bot_4eps*(layer_sig == 8) + ma_bot_4eps*(layer_sig == 9)
++ signal_top_4eps = m1_top_4eps*(layer_sig == 1) + m2_top_4eps*(layer_sig == 2) + m3_top_4eps*(layer_sig == 3) + m4_top_4eps*(layer_sig == 4) + mq_top_4eps*(layer_sig == 5) + ly_top_4eps*(layer_sig == 6) + am_top_4eps*(layer_sig == 7) + e1_top_4eps*(layer_sig == 8) + ma_top_4eps*(layer_sig == 9)
++ crossunder_bot_4eps = m1_bot_4eps*(layer_bot == 1) + m2_bot_4eps*(layer_bot == 2) + m3_bot_4eps*(layer_bot == 3) + m4_bot_4eps*(layer_bot == 4) + mq_bot_4eps*(layer_bot == 5) + ly_bot_4eps*(layer_bot == 6) + am_bot_4eps*(layer_bot == 7) + e1_bot_4eps*(layer_bot == 8) + ma_bot_4eps*(layer_bot == 9)
++ crossunder_top_4eps = m1_top_4eps*(layer_bot == 1) + m2_top_4eps*(layer_bot == 2) + m3_top_4eps*(layer_bot == 3) + m4_top_4eps*(layer_bot == 4) + mq_top_4eps*(layer_bot == 5) + ly_top_4eps*(layer_bot == 6) + am_top_4eps*(layer_bot == 7) + e1_top_4eps*(layer_bot == 8) + ma_top_4eps*(layer_bot == 9)
+*
++ h_under = (signal_bot - crossunder_top)*(plane == 2 || plane == 3) + (hc)*(plane == 0 || plane == 1)
++ h_fill_under = (signal_bot_fill - crossunder_top_fill)*(plane == 2 || plane == 3) + (0.0)*(plane == 0 || plane == 1)
++ h_by_eps_under = (signal_bot_4eps - crossunder_top_4eps)*(plane == 2 || plane == 3) + (1.0)*(plane == 0 || plane == 1)
++ Epsilon_r_under = (h_under/h_by_eps_under)*(plane == 2 || plane == 3) + (Epsilon_r)*(plane == 0 || plane == 1)
+*
++ h_over = (crossover_bot - signal_top)*(plane == 1 || plane == 3) + (1.0)*(plane == 0 || plane == 2)
++ h_fill_over = (crossover_bot_fill - signal_top_fill)*(plane == 1 || plane == 3) + (0.0)*(plane == 0 || plane == 2)
++ h_by_eps_over = (crossover_bot_4eps - signal_top_4eps)*(plane == 1 || plane == 3) + (1.0)*(plane == 0 || plane == 2)
++ Epsilon_r_over = (h_over/h_by_eps_over)*(plane == 1 || plane == 3) + (eps_side_over)*(plane == 0 || plane == 2)
+*
+* Begin Ltot calculation for the nominal case ************************************************
+* High-Frequency Limit Inductance Calculation for Single-Wire Coplanar Waveguide without Substrate ...
++ X1_IND = 1.0837
++ X2_IND = 0.8816
++ X3_IND = 1.1418
+*
++ Cinfa = l*Epsilon_r*E0*(2.0*X1_IND*Epsilon_r_ratio*th/s_MICRONS + 4.0*X2_IND*(1.0/(pi - 2.0))*log(0.5*pi) + 4.0*X3_IND*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS))
+* Calculate time-of-flight ...
++ tof = l*sqrt(Epsilon_r)/3e8
+* Calculate total inductance ...
++ Ltot = tof*tof/Cinfa
+*
+* End Ltot Calculation ***********************************************************************
+* Next, calculate maximum length for given maximum bandwidth ...
++ lmax = (100.0/bwmax)*360.0
+*
+* High-Frequency Limit Capacitance Calculation for Single-Wire Coplanar Waveguide with Substrate ...
+* First, NO CROSSING LINES ...
++ X1_CAP_NONE = 0.9864
++ X2_CAP_NONE = 0.9214
++ X3_CAP_NONE = 1.0407
+*
++ C1_CAP_NONE = Epsilon_r_side*E0*X1_CAP_NONE*th/s_MICRONS
++ C2_CAP_NONE = Epsilon_r*E0*X2_CAP_NONE*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_NONE = Epsilon_r*E0*X3_CAP_NONE*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Cinf_1_NONE = 2.0*C1_CAP_NONE + 4.0*C2_CAP_NONE + 4.0*C3_CAP_NONE
+*
++ C31_2_NONE = Epsilon_r*E0*(1.0/pi)*log(2.0*hc/s_MICRONS)
++ x0_2_NONE = 0.5*(0.5*(w_MICRONS + s_MICRONS) + hc)
++ h0_2_NONE = sqrt(sqrt((x0_2_NONE*x0_2_NONE - hc*hc)*(x0_2_NONE*x0_2_NONE - hc*hc)))
++ Epsilon_rs_2_NONE = (hc*Epsilon_r + h0_2_NONE*Epsilon_s)/(hc + h0_2_NONE)
++ C32_2_NONE =  Epsilon_rs_2_NONE*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*hc))
++ C3s_2_NONE = X3_CAP_NONE*(C31_2_NONE + C32_2_NONE)
++ Cinf_2_NONE = 2.0*C1_CAP_NONE + 4.0*C2_CAP_NONE + 2.0*(C3_CAP_NONE + C3s_2_NONE)
+*
++ C21_3_NONE = Epsilon_r*E0*(1.0/(pi - 2.0))*log(1.0+(pi - 2.0)*hc/s_MICRONS)
++ h0_3_NONE_1 = 0.5*(0.5*s_MICRONS - hc)
++ Epsilon_rs_3_NONE_1 = (hc*Epsilon_r + 0.75*h0_3_NONE_1*Epsilon_s)/(hc + h0_3_NONE_1)
++ C22_3_NONE = Epsilon_rs_3_NONE_1*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi - 2)*hc + 2.0*s_MICRONS))
++ C2s_3_NONE =  X2_CAP_NONE*(C21_3_NONE + C22_3_NONE)
++ C31_3_NONE = 0.0
++ x0_3_NONE = 0.5*(0.5*w_MICRONS + s_MICRONS)
++ h0_3_NONE_2 = sqrt(sqrt((x0_3_NONE*x0_3_NONE - hc*hc)*(x0_3_NONE*x0_3_NONE - hc*hc)))
++ Epsilon_rs_3_NONE_2 = (hc*Epsilon_r + h0_3_NONE_2*Epsilon_s)/(hc + h0_3_NONE_2)
++ C32_3_NONE = Epsilon_rs_3_NONE_2*E0*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
++ C3s_3_NONE = X3_CAP_NONE*(C31_3_NONE + C32_3_NONE)
++ Cinf_3_NONE = 2.0*C1_CAP_NONE + 2.0*(C2_CAP_NONE + C2s_3_NONE) + 2.0*(C3_CAP_NONE + C3s_3_NONE)
+*
++ Cinf_TMP_NONE = Cinf_1_NONE*(hc > (w_MICRONS + s_MICRONS)/2) + Cinf_2_NONE*(hc <= (w_MICRONS + s_MICRONS)/2 && hc > s_MICRONS/2) + Cinf_3_NONE*(hc <= s_MICRONS/2)
++ Csm_NONE = l*Cinf_TMP_NONE
++ Cinf_NONE = Csm_NONE
+*
+* Next, ABOVE CROSSING LINES ...
++ th1_CAP_ABOVE = th*h_over/(h_under + h_over)
++ th2_CAP_ABOVE = th*h_under/(h_under + h_over)
+*
++ X1_CAP_ABOVE = 1.6810
++ X2_CAP_ABOVE = 0.8438
++ X3_CAP_ABOVE = 1.0590
+*
++ C1_CAP_ABOVE = Epsilon_r_side*E0*X1_CAP_ABOVE*th1_CAP_ABOVE/s_MICRONS
++ C2_CAP_ABOVE = Epsilon_r_under*E0*X2_CAP_ABOVE*(1.0/(pi - 2.0))*log(0.5*pi)
++ C3_CAP_ABOVE = Epsilon_r_under*E0*X3_CAP_ABOVE*(1.0/pi)*log(1.0 + w_MICRONS/s_MICRONS)
+*
++ Cinf_1_ABOVE = 2.0*C1_CAP_ABOVE + 2.0*C2_CAP_ABOVE + 2.0*C3_CAP_ABOVE
+*
++ C31_ABOVE_1 = Epsilon_r_under*E0*(1.0/pi)*log(2.0*h_under/s_MICRONS)
++ x0_ABOVE_1 = 0.5*(0.5*(w_MICRONS + s_MICRONS) + h_under)
++ h0_ABOVE_1 = sqrt(sqrt((x0_ABOVE_1*x0_ABOVE_1 - h_under*h_under)*(x0_ABOVE_1*x0_ABOVE_1 - h_under*h_under)))
++ Epsilon_rs_ABOVE_1 = (h_under*Epsilon_r_under + h0_ABOVE_1*Epsilon_s)/(h_under + h0_ABOVE_1)
++ C32_ABOVE_1 =  Epsilon_rs_ABOVE_1*E0*(1.0/pi)*log((w_MICRONS + s_MICRONS)/(2.0*h_under))
++ C3s_ABOVE_1 = X3_CAP_ABOVE*(C31_ABOVE_1 + C32_ABOVE_1)
++ Cinf_2_ABOVE = 2.0*C1_CAP_ABOVE + 2.0*C2_CAP_ABOVE + 2.0*C3s_ABOVE_1
+*
++ C21_ABOVE = Epsilon_r_under*E0*(1.0/(pi - 2.0))*log(1.0+(pi-2.0)*h_under/s_MICRONS)
++ h0_ABOVE_2 = 0.5*(0.5*s_MICRONS - h_under)
++ Epsilon_rs_ABOVE_2 = (h_under*Epsilon_r_under + 0.75*h0_ABOVE_2*Epsilon_s)/(h_under + h0_ABOVE_2)
++ C22_ABOVE = Epsilon_rs_ABOVE_2*E0*(1.0/(pi - 2.0))*log(pi*s_MICRONS/(2.0*(pi-2)*h_under + 2.0*s_MICRONS))
++ C2s_ABOVE_CAP =  X2_CAP_ABOVE*(C21_ABOVE + C22_ABOVE)
++ C31_ABOVE_2 = 0.0
++ x0_ABOVE_2 = 0.5*(0.5*w_MICRONS + s_MICRONS)
++ h0_ABOVE_3 = sqrt(sqrt((x0_ABOVE_2*x0_ABOVE_2 - h_under*h_under)*(x0_ABOVE_2*x0_ABOVE_2 - h_under*h_under)))
++ Epsilon_rs_ABOVE_3 = (h_under*Epsilon_r_under + h0_ABOVE_3*Epsilon_s)/(h_under + h0_ABOVE_3)
++ C32_ABOVE_2 = Epsilon_rs_ABOVE_3*E0*(1.0/pi)*log(1.0 +  w_MICRONS/s_MICRONS)
++ C3s_ABOVE_2 = X3_CAP_ABOVE*(C31_ABOVE_2 + C32_ABOVE_2)
++ Cinf_3_ABOVE = 2.0*C1_CAP_ABOVE + 2.0*C2s_ABOVE_CAP + 2.0*C3s_ABOVE_2
+*
++ Cinf_TMP_ABOVE = Cinf_1_ABOVE*(h_under > (w_MICRONS + s_MICRONS)/2) + Cinf_2_ABOVE*(h_under > s_MICRONS/2) + Cinf_3_ABOVE*(h_under <= s_MICRONS/2)
++ Csm_ABOVE	= l*Cinf_TMP_ABOVE
++ C1_ABOVE_CAP = Csm_ABOVE
+*
++ Y1_CAP_ABOVE = 1.0469
++ Y2_CAP_ABOVE = 0.6223
++ Y3_CAP_ABOVE = 1.1032
++ Y4_CAP_ABOVE = 1.2619
++ Y5_CAP_ABOVE = 1.1891
+*
++ alfa_CAP_ABOVE = 2*atan(0.5*s_MICRONS/h_over)
++ beta_CAP_ABOVE = pi/2 - alfa_CAP_ABOVE
++
++ Cpl_CAP_ABOVE_1 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(1 + th2_CAP_ABOVE/h_over))
++ Cpl_CAP_ABOVE_2 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*(2/(pi-2))*log(pi/2) + Y3_CAP_ABOVE*(2/pi)*log(s_MICRONS/(2*h_over)))
++ Cpl_CAP_ABOVE_3 = E0*( Y1_CAP_ABOVE*w_MICRONS/(2*h_over) + Y2_CAP_ABOVE*((1-cos(alfa_CAP_ABOVE))/(alfa_CAP_ABOVE-sin(alfa_CAP_ABOVE)))*log(alfa_CAP_ABOVE/sin(alfa_CAP_ABOVE)))
++ Cpl_CAP_ABOVE = (s_MICRONS >= 2*(h_over+th2_CAP_ABOVE))*Cpl_CAP_ABOVE_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over + th2_CAP_ABOVE))*Cpl_CAP_ABOVE_2 + (s_MICRONS < 2*(h_over))*Cpl_CAP_ABOVE_3
+*
++ Cs_CAP_ABOVE_1 = 0.0
++ Cs_CAP_ABOVE_2 = E0*( Y4_CAP_ABOVE*(th2_CAP_ABOVE + h_over - s_MICRONS/2.0)/s_MICRONS)
++ Cs_CAP_ABOVE_3 = E0*( Y4_CAP_ABOVE*(th2_CAP_ABOVE/s_MICRONS) + Y5_CAP_ABOVE*0.5*((1-cos(beta_CAP_ABOVE))/(beta_CAP_ABOVE-sin(beta_CAP_ABOVE)))*log(beta_CAP_ABOVE/sin(beta_CAP_ABOVE)))
++ Cs_CAP_ABOVE = (s_MICRONS >= 2*(h_over+th2_CAP_ABOVE))*Cs_CAP_ABOVE_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_CAP_ABOVE))*Cs_CAP_ABOVE_2 + (s_MICRONS < 2*(h_over))*Cs_CAP_ABOVE_3
+*
++ Cpl_tmp_CAP_ABOVE_1 = 2.0*Cpl_CAP_ABOVE*Epsilon_r_over*l
++ Cs_tmp_CAP_ABOVE_1 = 2.0*Cs_CAP_ABOVE*Epsilon_r_side*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_CAP_ABOVE =  (1 - denfill) + denfill*h_over/(h_over - h_fill)
++ Cpl_tmp_CAP_ABOVE = Cpl_tmp_CAP_ABOVE_1*(patternfill == 0) + Cpl_tmp_CAP_ABOVE_1*coefill_CAP_ABOVE*(patternfill == 1)
+*
++ delta_CAP_ABOVE = 1.0e-10
++ num_side_fill_CAP_ABOVE = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_CAP_ABOVE =  int(num_side_fill_CAP_ABOVE + delta_CAP_ABOVE)
++ coefill_side_CAP_ABOVE = s_MICRONS/(s_MICRONS - num_fill_CAP_ABOVE*wfill*denfillc)
++ Cs_tmp_CAP_ABOVE = Cs_tmp_CAP_ABOVE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_CAP_ABOVE < 1))) + Cs_tmp_CAP_ABOVE_1*coefill_side_CAP_ABOVE*(patternfill == 1 && (wfill > 0 && num_fill_CAP_ABOVE >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C2_ABOVE_CAP = Cpl_tmp_CAP_ABOVE + Cs_tmp_CAP_ABOVE
+*
++ Cinf_ABOVE = C1_ABOVE_CAP + C2_ABOVE_CAP
+*
+* Next, BELOW CROSSING LINES ...
++ Cinf_BELOW = 1.0e-20
+*
+* Next, BOTH CROSSING LINES ...
++ Cinf_BOTH = 1.0e-20
+*
+* End High-Frequency Limit Capacitance Calculation for Single-Wire Coplanar Waveguide with Substrate ...
+*
+* High-Frequency Limit Capacitance Derivatives Calculation for Single-Wire Coplanar Waveguide without Substrate ...
++ X1_DCAP = 0.9837
++ X3_DCAP = 1.1418
++ DcDw = 4.0*X3_DCAP*(1.0/pi)/(s_MICRONS + w_MICRONS)
++ DcDt =  2.0*Epsilon_r_ratio*X1_DCAP/s_MICRONS
++ s2 = s_MICRONS*s_MICRONS
++ DcDs = 2.0*X1_DCAP*(-Epsilon_r_ratio*th/s2 + 4.0*X3_DCAP*(1.0/pi)*(-1/(s2+s_MICRONS*w_MICRONS)))
++ Dcaps_TMP = E0*(2.0*DcDs - 2.0*DcDw - 2.0*DcDt)
++ Dcaps = Dcaps_TMP*1.0e6
+* End High-Frequency Limit Capacitance Derivatives Calculation for Single-Wire Coplanar Waveguide without Substrate ...
+*
+* Now, determine static capacitance for single CPW with no crossing lines ("plane" = 0 [NONE]) ...
++ Epsilon_r_ratio_NONE = 0.5*(Epsilon_r + Epsilon_r_over)/Epsilon_r_side
++ Z1_NONE = 0.9899
++ Z2_NONE = 0.7246
++ Z3_NONE = 1.4687
++ Z4_NONE = 1.5499*Epsilon_r_ratio_NONE
++ Z5_NONE = 0.6610
++ Z6_NONE = 1.0762
++ Z7_NONE = 0.8745
+*
++ alfa_NONE = 2*atan(0.5*s_MICRONS/hc)
++ beta_NONE = pi/2 - alfa_NONE
+*
++ Cpl_1_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(1 + th/hc))
++ Cpl_2_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(2/(pi-2))*log(0.5*pi) + Z3_NONE*(2/pi)*log(0.5*s_MICRONS/hc))
++ Cpl_3_NONE = E0*(Z1_NONE*0.5*w_MICRONS/hc + Z2_NONE*(1-cos(alfa_NONE))/(alfa_NONE-sin(alfa_NONE))*log(alfa_NONE/sin(alfa_NONE)))
++ Cpl_NONE = (s_MICRONS >= 2*(hc+th))*Cpl_1_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cpl_2_NONE + (s_MICRONS < 2*(hc))*Cpl_3_NONE
+*
++ Cs_1_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi))
++ Cs_2_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi) + Z6_NONE*(th + hc - 0.5*s_MICRONS)/s_MICRONS)
++ Cs_3_NONE = E0*(Z4_NONE*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_NONE*(1/(pi-2))*log(0.5*pi) + Z6_NONE*th/s_MICRONS + Z7_NONE*0.5*(1-cos(beta_NONE))/(beta_NONE-sin(beta_NONE))*log(beta_NONE/sin(beta_NONE)))
++ Cs_NONE = (s_MICRONS >= 2*(hc+th))*Cs_1_NONE + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cs_2_NONE + (s_MICRONS < 2*(hc))*Cs_3_NONE
+*
++ Cplr_NONE = Cpl_NONE*Epsilon_r
++ Csr_NONE = Cs_NONE*Epsilon_r_side
+*
++ Cpl_1_1_NONE_1 = E0*(0.5*w_MICRONS/hc + (2/(pi-2))*log(0.5*pi) + (2/pi)*log(1 + th/hc))
++ Cpl_1_2_NONE_1 = E0*(0.5*w_MICRONS/hc + (2/(pi-2))*log(0.5*pi) + (2/pi)*log(0.5*s_MICRONS/hc))
++ Cpl_1_3_NONE_1 = E0*(0.5*w_MICRONS/hc + (1-cos(alfa_NONE))/(alfa_NONE-sin(alfa_NONE))*log(alfa_NONE/sin(alfa_NONE)))
++ Cpl_1_NONE_1 = (s_MICRONS >= 2*(hc+th))*Cpl_1_1_NONE_1 + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cpl_1_2_NONE_1 + (s_MICRONS < 2*(hc))*Cpl_1_3_NONE_1
+*
++ Cpl_1r_NONE = Cpl_1_NONE_1*Epsilon_r
++ Cs_1r_NONE = Cplr_NONE + Csr_NONE - Cpl_1r_NONE
+*
++ Cpl_tmp_NONE_1 = (Cs_1r_NONE < 0.0)*(Cplr_NONE*l) + (Cs_1r_NONE >= 0.0)*(Cpl_1r_NONE*l)
++ Cs_tmp_NONE = (Cs_1r_NONE < 0.0)*(Csr_NONE*l) + (Cs_1r_NONE >= 0.0)*(Cs_1r_NONE*l)
+*
++ Cpl_nofill_tmp_NONE = Cpl_tmp_NONE_1
++ Cs_nofill_tmp_NONE_1 = Cs_tmp_NONE
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_NONE = (1 - denfill) + denfill*hc/(hc - h_fill)
++ Cpl_tmp_NONE = Cpl_tmp_NONE_1*(patternfill == 0) + Cpl_tmp_NONE_1*coefill_NONE*(patternfill == 1)
+*
++ delta_NONE = 1.0e-10
++ num_side_fill_NONE = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_NONE = int(num_side_fill_NONE + delta_NONE)
++ coefill_side_NONE = s_MICRONS/(s_MICRONS - num_fill_NONE*wfill*denfillc)
++ Cs_nofill_tmp_NONE = Cs_nofill_tmp_NONE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_NONE < 1))) + Cs_nofill_tmp_NONE_1*coefill_side_NONE*(patternfill == 1 && (wfill > 0 && num_fill_NONE >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cotot_NONE = 2.0*(Cpl_tmp_NONE + Cs_tmp_NONE)
++ Cotot_NONE_NOFILL = 2.0*(Cpl_nofill_tmp_NONE + Cs_nofill_tmp_NONE)
++ Coxa_NONE = 2.0*Cpl_tmp_NONE
++ Coxo_NONE_1 = 2.0*Cs_tmp_NONE
+*
++ alfa_NONE_1 = 2*atan(0.5*s_MICRONS/hc)
++ beta_NONE_1 = pi/2 - alfa_NONE
+*
++ X2_NONE_TMP = 0
++ cf_NONE =  1.0 - 0.2*X2_NONE_TMP
+*
++ Cpl_1_NONE_1a = E0*(w_MICRONS/(2*hc) + cf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th/hc))
++ Cpl_2_NONE_1a = E0*(w_MICRONS/(2*hc) + cf_NONE*(2/(pi-2))*log(pi/2) + (2/pi)*log(s_MICRONS/(2*hc)))
++ Cpl_3_NONE_1a = E0*(w_MICRONS/(2*hc) + cf_NONE*((1-cos(alfa_NONE_1))/(alfa_NONE_1-sin(alfa_NONE_1)))*log(alfa_NONE_1/sin(alfa_NONE_1)) )
++ Cpl_NONE_1a = (s_MICRONS >= 2*(hc+th))*Cpl_1_NONE_1a + (s_MICRONS >= 2*(hc) && s_MICRONS < 2*(hc+th))*Cpl_2_NONE_1a + (s_MICRONS < 2*(hc))*Cpl_3_NONE_1a
+*
++ Cpl_NONE_TMP_1 = 2.0*Cpl_NONE_1a*Epsilon_r*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_NONE_1 = (1 - denfill) + denfill*hc/(hc - h_fill)
++ Cpl_NONE_TMP = Cpl_NONE_TMP_1*(patternfill == 0) + Cpl_NONE_TMP_1*coefill_NONE_1*(patternfill == 1)
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cox_NONE_TMP = Cpl_NONE_TMP
++ Coxo_NONE_2 = Cotot_NONE - Cox_NONE_TMP
++ Coxo_NONE_TMP = Coxo_NONE_1*(Coxo_NONE_2 < 0) + Coxo_NONE_2*(Coxo_NONE_2 >= 0)
+*
++ Csi_NONE_TMP1 = Cox_NONE_TMP*((Cinf_NONE)-(Coxo_NONE_TMP))/((Cox_NONE_TMP)+(Coxo_NONE_TMP )-(Cinf_NONE))
++ Csi_NONE_TMP = 1.0e-20*(Csi_NONE_TMP1 < 0) + Csi_NONE_TMP1*(Csi_NONE_TMP1 >= 0)
++ Rsi_NONE_TMP = (1e-20)*(crosstype == 1 && siliconlosses == 0) + Epsilon_s*E0*(rsub)/(Csi_NONE_TMP)
+*-------------------------------------------------------------------------------------------------------//
++ Cox_NONE = Cox_NONE_TMP		    // Calculated Cox, Coxo, Csi, and Rsi for "plane" = NONE.	//
++ Coxo_NONE = Coxo_NONE_TMP			               						//
++ Csi_NONE = Csi_NONE_TMP			              						//
++ Rsi_NONE = Rsi_NONE_TMP                                                                               //
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for single CPW with crossing lines above ("plane" = 1 [ABOVE]) ...
++ cf_ABOVE = 0.85
++ Y1_ABOVE = 1.0519
++ Y2_ABOVE = 0.6536*cf_ABOVE
++ Y3_ABOVE = 1.4796
++ Y4_ABOVE = 1.0924
++ Y5_ABOVE = 1.6568*cf_ABOVE
+*
++ th1_ABOVE = th*h_over/(h_under+h_over)
++ th2_ABOVE = th*h_under/(h_under+h_over)
+*
++ alfa_ABOVE_1 = 2*atan(0.5*s_MICRONS/h_under)
++ beta_ABOVE_1 = pi/2 - alfa_ABOVE_1
++ alfa_ABOVE_2 = 2*atan(0.5*s_MICRONS/h_over)
++ beta_ABOVE_2 = pi/2 - alfa_ABOVE_2
+*
+* First, determine static capacitance for h_under and th1_ABOVE ...
++ Cpl_1_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th1_ABOVE/h_under))
++ Cpl_1_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(s_MICRONS/(2*h_under)))
++ Cpl_1_ABOVE_3 = E0*( Y1_ABOVE*w_MICRONS/(2*h_under) + Y2_ABOVE*((1-cos(alfa_ABOVE_1))/(alfa_ABOVE_1-sin(alfa_ABOVE_1)))*log(alfa_ABOVE_1/sin(alfa_ABOVE_1)))
++ Cpl_1_ABOVE = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_1_ABOVE_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_1_ABOVE_2 + (s_MICRONS < 2*(h_under))*Cpl_1_ABOVE_3
+*
++ Cs_1_ABOVE_1 = 0.0
++ Cs_1_ABOVE_2 = E0*( Y4_ABOVE*(th1_ABOVE + h_under - s_MICRONS/2.0)/s_MICRONS)
++ Cs_1_ABOVE_3 = E0*( Y4_ABOVE*(th1_ABOVE/s_MICRONS) + Y5_ABOVE*0.5*((1-cos(beta_ABOVE_1))/(beta_ABOVE_1-sin(beta_ABOVE_1)))*log(beta_ABOVE_1/sin(beta_ABOVE_1)))
++ Cs_1_ABOVE = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cs_1_ABOVE_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cs_1_ABOVE_2 + (s_MICRONS < 2*(h_under))*Cs_1_ABOVE_3
+*
++ C1pl_ABOVE_1 = 2.0*Cpl_1_ABOVE*Epsilon_r_under*l
++ C1s_ABOVE_1 = 2.0*Cs_1_ABOVE*Epsilon_r_side*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_ABOVE = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ C1pl_ABOVE = C1pl_ABOVE_1*(patternfill == 0) + C1pl_ABOVE_1*coefill_ABOVE*(patternfill == 1)
+*
++ delta_ABOVE = 1.0e-10
++ num_side_fill_ABOVE = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE = int(num_side_fill_ABOVE + delta_ABOVE)
++ coefill_side_ABOVE = s_MICRONS/(s_MICRONS - num_fill_ABOVE*wfill*denfillc)
++ C1s_ABOVE = C1s_ABOVE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE < 1))) + C1s_ABOVE_1*coefill_side_ABOVE*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C1_ABOVE = C1pl_ABOVE + C1s_ABOVE
+*
++ X2_TMP_ABOVE = 1.0
+*
++ cf_ABOVE_cf = 1.0 - 0.2*X2_TMP_ABOVE
++ Cpl_1_ABOVE_1_cf = E0*(w_MICRONS/(2*h_under) + cf_ABOVE_cf*(2/(pi-2))*log(pi/2) + (2/pi)*log(1 + th1_ABOVE/h_under))
++ Cpl_1_ABOVE_2_cf = E0*(w_MICRONS/(2*h_under) + cf_ABOVE_cf*(2/(pi-2))*log(pi/2) + (2/pi)*log(s_MICRONS/(2*h_under)))
++ Cpl_1_ABOVE_3_cf = E0*(w_MICRONS/(2*h_under) + cf_ABOVE_cf*((1-cos(alfa_ABOVE_1))/(alfa_ABOVE_1-sin(alfa_ABOVE_1)))*log(alfa_ABOVE_1/sin(alfa_ABOVE_1)))
++ Cpl_1_ABOVE_cf_TEMP = (s_MICRONS >= 2*(h_under+th1_ABOVE))*Cpl_1_ABOVE_1_cf + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_ABOVE))*Cpl_1_ABOVE_2_cf + (s_MICRONS < 2*(h_under))*Cpl_1_ABOVE_3_cf
+*
++ Cpl_1_ABOVE_cf_1 = 2.0*Cpl_1_ABOVE_cf_TEMP*Epsilon_r_under*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_ABOVE1 = (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_1_ABOVE_cf = Cpl_1_ABOVE_cf_1*(patternfill == 0) + Cpl_1_ABOVE_cf_1*coefill_ABOVE1*(patternfill == 1)
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cox_ABOVE_TMP = Cpl_1_ABOVE_cf
+*
+* Second, determine static capacitance for h_over and th2_ABOVE ...
++ Cpl_2_ABOVE_1 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(1 + th2_ABOVE/h_over))
++ Cpl_2_ABOVE_2 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*(2/(pi-2))*log(pi/2) + Y3_ABOVE*(2/pi)*log(s_MICRONS/(2*h_over)))
++ Cpl_2_ABOVE_3 = E0*( Y1_ABOVE*w_MICRONS/(2*h_over) + Y2_ABOVE*((1-cos(alfa_ABOVE_2))/(alfa_ABOVE_2-sin(alfa_ABOVE_2)))*log(alfa_ABOVE_2/sin(alfa_ABOVE_2)))
++ Cpl_2_ABOVE = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Cpl_2_ABOVE_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Cpl_2_ABOVE_2 + (s_MICRONS < 2*(h_over))*Cpl_2_ABOVE_3
+*
++ Cs_2_ABOVE_1 = 0.0
++ Cs_2_ABOVE_2 = E0*( Y4_ABOVE*(th2_ABOVE + h_over - s_MICRONS/2.0)/s_MICRONS)
++ Cs_2_ABOVE_3 = E0*( Y4_ABOVE*(th2_ABOVE/s_MICRONS) + Y5_ABOVE*0.5*((1-cos(beta_ABOVE_2))/(beta_ABOVE_2-sin(beta_ABOVE_2)))*log(beta_ABOVE_2/sin(beta_ABOVE_2)))
++ Cs_2_ABOVE = (s_MICRONS >= 2*(h_over+th2_ABOVE))*Cs_2_ABOVE_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_ABOVE))*Cs_2_ABOVE_2 + (s_MICRONS < 2*(h_over))*Cs_2_ABOVE_3
+*
++ C2pl_ABOVE_1 = 2.0*Cpl_2_ABOVE*Epsilon_r_over*l
++ C2s_ABOVE_1 = 2.0*Cs_2_ABOVE*Epsilon_r_side*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_ABOVE_1 = (1 - denfill) + denfill*h_over/(h_over - h_fill_over)
++ C2pl_ABOVE = C2pl_ABOVE_1*(patternfill == 0) + C2pl_ABOVE_1*coefill_ABOVE_1*(patternfill == 1)
+*
++ delta_ABOVE_1 = 1.0e-10
++ num_side_fill_ABOVE_1 = (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_ABOVE_1 = int(num_side_fill_ABOVE_1 + delta_ABOVE_1)
++ coefill_side_ABOVE_1 = s_MICRONS/(s_MICRONS - num_fill_ABOVE_1*wfill*denfillc)
++ C2s_ABOVE = C2s_ABOVE_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_ABOVE_1 < 1))) + C2s_ABOVE_1*coefill_side_ABOVE_1*(patternfill == 1 && (wfill > 0 && num_fill_ABOVE_1 >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C2_ABOVE = C2pl_ABOVE + C2s_ABOVE
+*
++ Cotot_ABOVE = C1_ABOVE + C2_ABOVE
++ Coxo_ABOVE_TMP = (C2_ABOVE + C1s_ABOVE)*(C1_ABOVE + C2_ABOVE - Cox_ABOVE_TMP < 0) + (C1_ABOVE + C2_ABOVE - Cox_ABOVE_TMP)*(C1_ABOVE + C2_ABOVE - Cox_ABOVE_TMP >= 0)
+*
++ Csi_ABOVE_TMP1 = Cox_ABOVE_TMP*((Cinf_ABOVE)-(Coxo_ABOVE_TMP))/((Cox_ABOVE_TMP)+(Coxo_ABOVE_TMP)-(Cinf_ABOVE))
++ Csi_ABOVE_TMP = 1.0e-20*(Csi_ABOVE_TMP1 < 0) + Csi_ABOVE_TMP1*(Csi_ABOVE_TMP1 >= 0)
++ Rsi_ABOVE_TMP = Epsilon_s*E0*(rsub)/(Csi_ABOVE_TMP)
+*-------------------------------------------------------------------------------------------------------//
++ Cox_ABOVE = Cox_ABOVE_TMP		    // Calculated Cox, Coxo, Csi, and Rsi for "plane" = ABOVE.	//
++ Coxo_ABOVE = Coxo_ABOVE_TMP			               						//
++ Csi_ABOVE = Csi_ABOVE_TMP			              						//
++ Rsi_ABOVE = Rsi_ABOVE_TMP                                                                             //
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for single CPW with crossing lines below ("plane" = 2 [BELOW]) ...
++ Epsilon_r_ratio_BELOW = 0.5*(Epsilon_r_under + Epsilon_r_over)/Epsilon_r_side
++ Z1_BELOW = 1.0101
++ Z2_BELOW = 0.6582
++ Z3_BELOW = 1.1436
++ Z4_BELOW = 1.2023*Epsilon_r_ratio_BELOW
++ Z5_BELOW = 0.9575
++ Z6_BELOW = 1.1315
++ Z7_BELOW = 1.2204
+*
++ alfa_BELOW = 2*atan(0.5*s_MICRONS/h_under)
++ beta_BELOW = pi/2 - alfa_BELOW
+*
++ Cpl_1_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(1 + th/h_under))
++ Cpl_2_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(2/(pi-2))*log(0.5*pi) + Z3_BELOW*(2/pi)*log(0.5*s_MICRONS/h_under))
++ Cpl_3_BELOW = E0*(Z1_BELOW*0.5*w_MICRONS/h_under + Z2_BELOW*(1-cos(alfa_BELOW))/(alfa_BELOW-sin(alfa_BELOW))*log(alfa_BELOW/sin(alfa_BELOW)))
++ Cpl_BELOW = (s_MICRONS >= 2*(h_under+th))*Cpl_1_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cpl_2_BELOW + (s_MICRONS < 2*(h_under))*Cpl_3_BELOW
+*
++ Cs_1_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi))
++ Cs_2_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi) + Z6_BELOW*(th + h_under - 0.5*s_MICRONS)/s_MICRONS)
++ Cs_3_BELOW = E0*(Z4_BELOW*(1/pi)*log(1 + w_MICRONS/s_MICRONS) + Z5_BELOW*(1/(pi-2))*log(0.5*pi) + Z6_BELOW*th/s_MICRONS + Z7_BELOW*0.5*(1-cos(beta_BELOW))/(beta_BELOW-sin(beta_BELOW))*log(beta_BELOW/sin(beta_BELOW)))
++ Cs_BELOW = (s_MICRONS >= 2*(h_under+th))*Cs_1_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cs_2_BELOW + (s_MICRONS < 2*(h_under))*Cs_3_BELOW
+*
++ Cplr_BELOW = Cpl_BELOW*Epsilon_r_under
++ Csr_BELOW = Cs_BELOW*Epsilon_r_side
+*
++ Cpl_1_1_BELOW = E0*(0.5*w_MICRONS/h_under + (2/(pi-2))*log(0.5*pi) + (2/pi)*log(1 + th/h_under))
++ Cpl_1_2_BELOW = E0*(0.5*w_MICRONS/h_under + (2/(pi-2))*log(0.5*pi) + (2/pi)*log(0.5*s_MICRONS/h_under))
++ Cpl_1_3_BELOW = E0*(0.5*w_MICRONS/h_under + (1-cos(alfa_BELOW))/(alfa_BELOW-sin(alfa_BELOW))*log(alfa_BELOW/sin(alfa_BELOW)))
++ Cpl_1_BELOW_1 = (s_MICRONS >= 2*(h_under+th))*Cpl_1_1_BELOW + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th))*Cpl_1_2_BELOW + (s_MICRONS < 2*(h_under))*Cpl_1_3_BELOW
+*
++ Cpl_1r_BELOW = Cpl_1_BELOW_1*Epsilon_r_under
++ Cs_1r_BELOW = Cplr_BELOW + Csr_BELOW - Cpl_1r_BELOW
+*
++ Cpl_tmp_BELOW_1 = (Cs_1r_BELOW < 0.0)*(Cplr_BELOW*l) + (Cs_1r_BELOW >= 0.0)*(Cpl_1r_BELOW*l)
++ Cs_tmp_BELOW = (Cs_1r_BELOW < 0.0)*(Csr_BELOW*l) + (Cs_1r_BELOW >= 0.0)*(Cs_1r_BELOW*l)
+*
++ Cpl_nofill_tmp_BELOW = Cpl_tmp_BELOW_1
++ Cs_nofill_tmp_BELOW_1 = Cs_tmp_BELOW
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_BELOW =  (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ Cpl_tmp_BELOW = Cpl_tmp_BELOW_1*(patternfill == 0) + Cpl_tmp_BELOW_1*coefill_BELOW*(patternfill == 1)
+*
++ delta_BELOW = 1.0e-10
++ num_side_fill_BELOW =  (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BELOW =  int(num_side_fill_BELOW + delta_BELOW)
++ coefill_side_BELOW = s_MICRONS/(s_MICRONS - num_fill_BELOW*wfill*denfillc)
++ Cs_nofill_tmp_BELOW = Cs_nofill_tmp_BELOW_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BELOW < 1))) + Cs_nofill_tmp_BELOW_1*coefill_side_BELOW*(patternfill == 1 && (wfill > 0 && num_fill_BELOW >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ Cotot_BELOW = 2.0*(Cpl_tmp_BELOW + Cs_tmp_BELOW)
++ Cox_BELOW_TMP = 1.0e-6*(Cotot_BELOW)
++ Coxo_BELOW_TMP = Cotot_BELOW
+*
++ Csi_BELOW_TMP = 1.0e-20
++ Rsi_BELOW_TMP = 1.0e-20
+*-------------------------------------------------------------------------------------------------------//
++ Cox_BELOW = Cox_BELOW_TMP		    // Calculated Cox, Coxo, Csi, and Rsi for "plane" = BELOW.	//
++ Coxo_BELOW = Coxo_BELOW_TMP			               						//
++ Csi_BELOW = Csi_BELOW_TMP			              						//
++ Rsi_BELOW = Rsi_BELOW_TMP                                                                             //
+*-------------------------------------------------------------------------------------------------------//
+* Now, determine static capacitance for single CPW with crossing lines both ("plane" = 3 [BOTH]) ...
++ cf_BOTH = 0.8
++ Y1_BOTH = 0.9837
++ Y2_BOTH = 0.8122*cf_BOTH
++ Y3_BOTH = 1.3063
++ Y4_BOTH = 1.2968
++ Y5_BOTH = 1.6013*cf_BOTH
+*
++ th1_BOTH = th*h_over/(h_under+h_over)
++ th2_BOTH = th*h_under/(h_under+h_over)
+*
++ alfa_BOTH_1 = 2*atan(0.5*s_MICRONS/h_under)
++ beta_BOTH_1 = pi/2 - alfa_BOTH_1
++ alfa_BOTH_2 = 2*atan(0.5*s_MICRONS/h_over)
++ beta_BOTH_2 = pi/2 - alfa_BOTH_2
+*
+* First, determine static capacitance for h_under and th1_BOTH ...
++ Cpl_1_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th1_BOTH/h_under))
++ Cpl_1_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(s_MICRONS/(2*h_under)))
++ Cpl_1_BOTH_3 = E0*( Y1_BOTH*w_MICRONS/(2*h_under) + Y2_BOTH*((1-cos(alfa_BOTH_1))/(alfa_BOTH_1-sin(alfa_BOTH_1)))*log(alfa_BOTH_1/sin(alfa_BOTH_1)))
++ Cpl_1_BOTH = (s_MICRONS >= 2*(h_under+th1_BOTH))*Cpl_1_BOTH_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Cpl_1_BOTH_2 + (s_MICRONS < 2*(h_under))*Cpl_1_BOTH_3
+*
++ Cs_1_BOTH_1 = 0.0
++ Cs_1_BOTH_2 = E0*( Y4_BOTH*(th1_BOTH + h_under - s_MICRONS/2.0)/s_MICRONS)
++ Cs_1_BOTH_3 = E0*( Y4_BOTH*(th1_BOTH/s_MICRONS) + Y5_BOTH*0.5*((1-cos(beta_BOTH_1))/(beta_BOTH_1-sin(beta_BOTH_1)))*log(beta_BOTH_1/sin(beta_BOTH_1)))
++ Cs_1_BOTH = (s_MICRONS >= 2*(h_under+th1_BOTH))*Cs_1_BOTH_1 + (s_MICRONS >= 2*(h_under) && s_MICRONS < 2*(h_under+th1_BOTH))*Cs_1_BOTH_2 + (s_MICRONS < 2*(h_under))*Cs_1_BOTH_3
+*
++ C1pl_BOTH_1 = 2.0*Cpl_1_BOTH*Epsilon_r_under*l
++ C1s_BOTH_1 = 2.0*Cs_1_BOTH*Epsilon_r_side*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_BOTH =  (1 - denfill) + denfill*h_under/(h_under - h_fill_under)
++ C1pl_BOTH = C1pl_BOTH_1*(patternfill == 0) + C1pl_BOTH_1*coefill_BOTH*(patternfill == 1)
+*
++ delta_BOTH = 1.0e-10
++ num_side_fill_BOTH =  (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH =  int(num_side_fill_BOTH + delta_BOTH)
++ coefill_side_BOTH = s_MICRONS/(s_MICRONS - num_fill_BOTH*wfill*denfillc)
++ C1s_BOTH = C1s_BOTH_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH < 1))) + C1s_BOTH_1*coefill_side_BOTH*(patternfill == 1 && (wfill > 0 && num_fill_BOTH >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C1_BOTH = C1pl_BOTH + C1s_BOTH
+*
+* Second, determine static capacitance for h_over and th2_BOTH ...
++ Cpl_2_BOTH_1 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(1 + th2_BOTH/h_over))
++ Cpl_2_BOTH_2 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*(2/(pi-2))*log(pi/2) + Y3_BOTH*(2/pi)*log(s_MICRONS/(2*h_over)))
++ Cpl_2_BOTH_3 = E0*( Y1_BOTH*w_MICRONS/(2*h_over) + Y2_BOTH*((1-cos(alfa_BOTH_2))/(alfa_BOTH_2-sin(alfa_BOTH_2)))*log(alfa_BOTH_2/sin(alfa_BOTH_2)))
++ Cpl_2_BOTH = (s_MICRONS >= 2*(h_over+th2_BOTH))*Cpl_2_BOTH_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Cpl_2_BOTH_2 + (s_MICRONS < 2*(h_over))*Cpl_2_BOTH_3
+*
++ Cs_2_BOTH_1 = 0.0
++ Cs_2_BOTH_2 = E0*( Y4_BOTH*(th2_BOTH + h_over - s_MICRONS/2.0)/s_MICRONS)
++ Cs_2_BOTH_3 = E0*( Y4_BOTH*(th2_BOTH/s_MICRONS) + Y5_BOTH*0.5*((1-cos(beta_BOTH_2))/(beta_BOTH_2-sin(beta_BOTH_2)))*log(beta_BOTH_2/sin(beta_BOTH_2)))
++ Cs_2_BOTH = (s_MICRONS >= 2*(h_over+th2_BOTH))*Cs_2_BOTH_1 + (s_MICRONS >= 2*(h_over) && s_MICRONS < 2*(h_over+th2_BOTH))*Cs_2_BOTH_2 + (s_MICRONS < 2*(h_over))*Cs_2_BOTH_3
+*
++ C2pl_BOTH_1 = 2.0*Cpl_2_BOTH*Epsilon_r_over*l
++ C2s_BOTH_1 = 2.0*Cs_2_BOTH*Epsilon_r_side*l
+*
+* Capacitance update due to Pattern Fill
+*
++ coefill_BOTH1 =  (1 - denfill) + denfill*h_over/(h_over - h_fill_over)
++ C2pl_BOTH = C2pl_BOTH_1*(patternfill == 0) + C2pl_BOTH_1*coefill_BOTH1*(patternfill == 1)
+*
++ delta_BOTH1 = 1.0e-10
++ num_side_fill_BOTH1 =  (s_MICRONS - 2*sf2sh - sfill)/(wfill - sfill)
++ num_fill_BOTH1 =  int(num_side_fill_BOTH1 + delta_BOTH1)
++ coefill_side_BOTH1 = s_MICRONS/(s_MICRONS - num_fill_BOTH1*wfill*denfillc)
++ C2s_BOTH = C2s_BOTH_1*(patternfill == 0 || (patternfill == 1 && (wfill <= 0 || num_fill_BOTH1 < 1))) + C2s_BOTH_1*coefill_side_BOTH1*(patternfill == 1 && (wfill > 0 && num_fill_BOTH1 >= 1))
+*
+* End Capacitance update due to Pattern Fill
+*
++ C2_BOTH = C2pl_BOTH + C2s_BOTH
+*
++ Cotot_BOTH = C1_BOTH + C2_BOTH
++ Coxo_BOTH_TMP = Cotot_BOTH
++ Cox_BOTH_TMP = 1.0e-6*Coxo_BOTH_TMP
+*
++ Csi_BOTH_TMP = 1.0e-20
++ Rsi_BOTH_TMP = 1.0e-20
+*-------------------------------------------------------------------------------------------------------//
++ Cox_BOTH = Cox_BOTH_TMP		    // Calculated Cox, Coxo, Csi, and Rsi for "plane" = BOTH.	//
++ Coxo_BOTH = Coxo_BOTH_TMP			               						//
++ Csi_BOTH = Csi_BOTH_TMP			              						//
++ Rsi_BOTH = Rsi_BOTH_TMP                                                                               //
+*-------------------------------------------------------------------------------------------------------//
+* Determine Cotot, Coxo, and Rsi for crosstype = CUSTOM ...
++ Cotot_CUST = C_cust*l
++ Coxo_CUST = Cotot_CUST - Cox_NONE
++ Rsi_CUST = 1.0e-20
+*
+* Determine Cox, Coxo, Cotot, and Cinf with crosscapfactor contribution for crosstype = FULL PLANE ...
++ Cox_FULL = (1.0 - crosscapfactor)*Cox_NONE + crosscapfactor*(Cox_NONE*(plane == 0) + Cox_ABOVE*(plane == 1) + Cox_BELOW*(plane == 2) + Cox_BOTH*(plane == 3))
++ Coxo_FULL = ((1.0 - crosscapfactor)*Coxo_NONE + crosscapfactor*(Coxo_NONE*(plane == 0) + Coxo_ABOVE*(plane == 1) + Coxo_BELOW*(plane == 2) + Coxo_BOTH*(plane == 3)))*(crosstype == 0) + ((C_cust*l - Cox_NONE)*(crosstype == 1))
++ Cotot_FULL = ((1.0 - crosscapfactor)*Cotot_NONE + crosscapfactor*(Cotot_NONE*(plane == 0) + Cotot_ABOVE*(plane == 1) + Cotot_BELOW*(plane == 2) + Cotot_BOTH*(plane == 3)))*(crosstype == 0) + ((C_cust*l)*(crosstype == 1))
++ Cinf_FULL = (1.0 - crosscapfactor)*Cinf_NONE + crosscapfactor*(Cinf_NONE*(plane == 0) + Cinf_ABOVE*(plane == 1) + Cinf_BELOW*(plane == 2) + Cinf_BOTH*(plane == 3))
+*
+* Then, determine Csi and Rsi (Silicon substrate frequency-dependent capacitive coupling and energy loss) for crosstype = FULL PLANE with crosscapfactor correction ...
++ Csi_NONE_or_ABOVE = (Cox_NONE*(plane == 0) + Cox_ABOVE*(plane == 1))*((Cinf_NONE*(plane == 0) + Cinf_ABOVE*(plane == 1))-(Coxo_NONE*(plane == 0) + Coxo_ABOVE*(plane == 1)))/((1*(plane == 2 || plane == 3) + Cox_NONE*(plane == 0) + Cox_ABOVE*(plane == 1))+(Coxo_NONE*(plane == 0) + Coxo_ABOVE*(plane == 1))-(Cinf_NONE*(plane == 0) + Cinf_ABOVE*(plane == 1)))
++ Csi_BELOW_or_BOTH = 1.0e-20
++ Csi_FULL = Csi_NONE_or_ABOVE*(plane == 0 || plane == 1) + Csi_BELOW_or_BOTH*(plane == 2 || plane == 3)
++ Rsi_NONE_or_ABOVE = Epsilon_s*E0*(rsub)/(Csi_FULL)
++ Rsi_BELOW_or_BOTH = 1.0e-20
++ Rsi_FULL = Rsi_NONE_or_ABOVE*(plane == 0 || plane == 1) + Rsi_BELOW_or_BOTH*(plane == 2 || plane == 3)
+*
+* Assignment of FULL PLANE or CUSTOM values to Cox, Coxo, Csi, and Rsi for the nominal case ...
++ Cox = Cox_FULL*(crosstype == 0) + Cox_NONE*(crosstype == 1)
++ Coxo = Coxo_FULL*(crosstype == 0) + Coxo_CUST*(crosstype == 1)
++ Csi = max(1e-20,Csi_FULL*(crosstype == 0) + Csi_NONE*(crosstype == 1))
++ Rsi = max(1e-10,Rsi_FULL*(crosstype == 0) + Rsi_BOTH*(crosstype == 1 && siliconlosses == 0) + Rsi_NONE*(crosstype == 1 && siliconlosses == 1))
+*	
+* delta_Lj and delta_Rj (j=1,2,3) calculations for single wire coplanar waveguide, same for either crosstype, i.e., FULL PLANE or CUSTOM, for the nominal case ...
++ X1_INDLF = 0.9896
++ mu01 = 4*pi*1e-7
++ m1 = mu01/(2*pi)
++ F_ss1 = X1_INDLF *2*( ( (((w_MICRONS+s_MICRONS+w_MICRONS)*th)*((w_MICRONS+s_MICRONS+w_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+w_MICRONS+th)-1.5) - (((w_MICRONS+s_MICRONS)*th)*((w_MICRONS+s_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+th)-1.5) - (((w_MICRONS+s_MICRONS)*th)*((w_MICRONS+s_MICRONS)*th))*(log(w_MICRONS+s_MICRONS+th)-1.5) + ((s_MICRONS*th)*(s_MICRONS*th))*(log(s_MICRONS+th)-1.5) )/2 )
++ F_ss2 = (((F_ss1/w_MICRONS)/w_MICRONS)/(th*th))/2
++ F_ss3 = log(w_MICRONS+th)-1.5
++ F_ss4 = 2*( ((w_MICRONS*th)*(w_MICRONS*th))*(log(w_MICRONS+th)-1.5) + ( ( (((w_MICRONS+(w_MICRONS+2*s_MICRONS)+w_MICRONS)*th)*((w_MICRONS+(w_MICRONS+2*s_MICRONS)+w_MICRONS)*th))*(log(w_MICRONS+(w_MICRONS+2*s_MICRONS)+w_MICRONS+th)-1.5) - (((w_MICRONS+(w_MICRONS+2*s_MICRONS))*th)*((w_MICRONS+(w_MICRONS+2*s_MICRONS))*th))*(log(w_MICRONS+(w_MICRONS+2*s_MICRONS)+th)-1.5) - (((w_MICRONS+(w_MICRONS+2*s_MICRONS))*th)*((w_MICRONS+(w_MICRONS+2*s_MICRONS))*th))*(log(w_MICRONS+(w_MICRONS+2*s_MICRONS)+th)-1.5) + (((w_MICRONS+2*s_MICRONS)*th)*((w_MICRONS+2*s_MICRONS)*th))*(log((w_MICRONS+2*s_MICRONS)+th)-1.5) )/2 ) )
++ F_ss5 = F_ss4/((2*w_MICRONS*th)*(2*w_MICRONS*th))
++ L0 = l*m1*(2*F_ss2-F_ss3-F_ss5)
+*
++ sigmas = 1.0e6/(Rsquare*th)
++ Dcs = Dcaps*Epsilon_r*l
++ K_infinite = - ((tof/Cotot_NONE_NOFILL)*(tof/Cotot_NONE_NOFILL))*(sqrt(pi/(mu01*sigmas))*Dcs)
+*
++ k = ratio
++ sk = sqrt(k)
++ k2 = k*k
++ k3 = k2*k
++ k4 = k3*k
++ k5 = k4*k
++ k2sk = k2-2.0*sk+1.0
++ Rtot_TEMP = Rpath + Rret
++ fi = (((k3-2.0*k+1.0)/k2sk)*(Rtot_TEMP/(k*K_infinite)))*(((k3-2.0*k+1.0)/k2sk)*(Rtot_TEMP/(k*K_infinite)))
+*
++ delta_R3 = 2.0*sk*Rtot_TEMP*(k4-2.0*k3+k2*sk-2.0*k2+3.0*k+sk-2.0)/k2sk
++ delta_L3 = delta_R3/(2.0*pi*fi*k5)
++ delta_R2 = 2.0*sk*Rtot_TEMP*(k3-k2*sk-sk+1.0)/k2sk
++ delta_L2 = delta_R2/(2.0*pi*fi*k3)
++ delta_R1 = (k-1)*Rtot_TEMP
++ delta_L1 = L0-Ltot-delta_L2-delta_L3
+* End calculations for delta_Lj and delta_Rj (j=1,2,3) ...
+*
+* singlecpw netlist follows ...
+*
+C71 (net041 vshield) capacitor c=Csi/6
+C80 (net117 vshield) capacitor c=Coxo/3
+C79 (net115 vshield) capacitor c=Coxo/3
+C81 (net117 net0107) capacitor c=Cox/3
+C78 (net115 net0117) capacitor c=Cox/3
+C74 (net0105 vshield) capacitor c=Csi/6
+C75 (vb vshield) capacitor c=Coxo/6
+C76 (vb net0105) capacitor c=Cox/6
+C82 (net0107 vshield) capacitor c=Csi/3
+C77 (net0117 vshield) capacitor c=Csi/3
+C73 (va net041) capacitor c=Cox/6
+C72 (va vshield) capacitor c=Coxo/6
+L152 (va net109) inductor l=Ltot/3
+L153 (net193 net111) inductor l=delta_L1/3
+L154 (net111 net113) inductor l=delta_L2/3
+L155 (net113 net115) inductor l=delta_L3/3
+L156 (net119 net117) inductor l=delta_L3/3
+L157 (net121 net119) inductor l=delta_L2/3
+L158 (net199 net121) inductor l=delta_L1/3
+L159 (net115 net123) inductor l=Ltot/3
+L160 (net117 net125) inductor l=Ltot/3
+L161 (net209 net127) inductor l=delta_L1/3
+L162 (net127 net129) inductor l=delta_L2/3
+L163 (net129 vb) inductor l=delta_L3/3
+R142 (vshield net0117) resistor r=Rsi*3
+R143 (vshield net0107) resistor r=Rsi*3
+R141 (vshield net0105) resistor r=Rsi*6
+R152 (net113 net115) resistor r=delta_R3/3
+R153 (net111 net113) resistor r=delta_R2/3
+R154 (net109 net193) resistor r=Rtot/3
+R155 (net193 net111) resistor r=delta_R1/3
+R156 (net199 net121) resistor r=delta_R1/3
+R157 (net123 net199) resistor r=Rtot/3
+R158 (net121 net119) resistor r=delta_R2/3
+R159 (net119 net117) resistor r=delta_R3/3
+R160 (net129 vb) resistor r=delta_R3/3
+R161 (net127 net129) resistor r=delta_R2/3
+R162 (net125 net209) resistor r=Rtot/3
+R163 (net209 net127) resistor r=delta_R1/3
+R140 (vshield net041) resistor r=Rsi*6
+
+ends singlecpw

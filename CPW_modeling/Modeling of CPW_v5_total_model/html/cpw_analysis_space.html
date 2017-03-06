@@ -1,0 +1,610 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>cpw_analysis_space</title><meta name="generator" content="MATLAB 8.6"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2016-10-11"><meta name="DC.source" content="cpw_analysis_space.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput">clc;clear;close <span class="string">all</span>
+dbstop <span class="string">if</span> <span class="string">error</span>;
+folder_path = <span class="string">'./S_parameters_sim/space/'</span>;
+cpw_space = 4:1:10;
+files_num = length(cpw_space);
+R_0123 = zeros(4,files_num);
+L_0123 = zeros(4,files_num);
+G_0123 = zeros(4,files_num);
+C_0123 = zeros(4,files_num);
+
+f_fit = zeros(2,files_num);
+Err_RLGC_model = zeros(8,files_num);
+Err_alpha_beta = zeros(4,files_num);
+
+len = 200;
+num_pi = ceil(len/12.5);
+len = len*1e-6;
+<span class="comment">%  regexp(files_name(5).name,'W\d{1,2}', 'match')</span>
+freq_min_max = [0.5,100]*1e9;
+f_2_zone = (5:0.5:25)*1e9;
+f_1 = 1e9*ones(1,length(f_2_zone));<span class="comment">%GHz</span>
+f_3 = 100e9*ones(1,length(f_2_zone));
+f_123_mat = [f_1;f_2_zone;f_3];
+lambda = ones(2,2)*0.5;
+<span class="keyword">for</span> k = 1:files_num
+    file_name = [folder_path,<span class="string">'L2W4S'</span>,num2str(cpw_space(k)),<span class="string">'.csv'</span>];
+
+    disp_sw = <span class="string">'off'</span>;
+    [ RLGC_0123_fit,f_fit_RL,f_fit_GC,Err_RLGC_fit,Err_RLGC_model(:,k),Err_s,Err_alpha_beta(:,k)] <span class="keyword">...</span><span class="comment">,</span>
+        = cpw_single( file_name,len,freq_min_max,f_123_mat,lambda,num_pi,disp_sw );
+    R_0123(:,k) = RLGC_0123_fit(:,1);
+    L_0123(:,k) = RLGC_0123_fit(:,2);
+    G_0123(:,k) = RLGC_0123_fit(:,3);
+    C_0123(:,k) = RLGC_0123_fit(:,4);
+    f_fit(1,k) = f_fit_RL(2);
+    f_fit(2,k) = f_fit_GC(2);
+<span class="keyword">end</span>
+
+
+plot_4_single(cpw_space,R_0123,{<span class="string">'R0'</span>,<span class="string">'R1'</span>,<span class="string">'R2'</span>,<span class="string">'R3'</span>},<span class="string">'Space [\mum]'</span>,<span class="string">'Resistance [\Omega/m]'</span>,<span class="string">'R0123'</span>,<span class="string">'-*r'</span>);
+plot_4_single(cpw_space,L_0123,{<span class="string">'L0'</span>,<span class="string">'L1'</span>,<span class="string">'L2'</span>,<span class="string">'L3'</span>},<span class="string">'Space [\mum]'</span>,<span class="string">'Inductance [H/m]'</span>,<span class="string">'L0123'</span>,<span class="string">'-*r'</span>);
+plot_4_single(cpw_space,G_0123,{<span class="string">'G0'</span>,<span class="string">'G1'</span>,<span class="string">'G2'</span>,<span class="string">'G3'</span>},<span class="string">'Space [\mum]'</span>,<span class="string">'Conductance [S/m]'</span>,<span class="string">'G0123'</span>,<span class="string">'-*r'</span>);
+plot_4_single(cpw_space,C_0123,{<span class="string">'C0'</span>,<span class="string">'C1'</span>,<span class="string">'C2'</span>,<span class="string">'C3'</span>},<span class="string">'Space [\mum]'</span>,<span class="string">'Capacitance [F/m]'</span>,<span class="string">'C0123'</span>,<span class="string">'-*r'</span>);
+plotyy_4(cpw_space,Err_RLGC_model*100,{<span class="string">'R'</span>,<span class="string">'L'</span>,<span class="string">'G'</span>,<span class="string">'C'</span>},<span class="string">'Space [\mum]'</span>,{<span class="string">'ave err(%)'</span>,<span class="string">'max err(%)'</span>},<span class="string">'Err of RLGC'</span>);
+plotyy_2(cpw_space,Err_alpha_beta*100,{<span class="string">'\alpha'</span>,<span class="string">'\beta'</span>},<span class="string">'Space [\mum]'</span>,{<span class="string">'ave err(%)'</span>,<span class="string">'max err(%)'</span>},<span class="string">'Err of alpha &amp; beta'</span>);
+
+figure
+plot(cpw_space,f_fit(1,:)./1e9,<span class="string">'-*r'</span>,cpw_space,f_fit(2,:)./1e9,<span class="string">'-ob'</span>)
+legend(<span class="string">'Freq\_RL'</span>,<span class="string">'Freq\_GC'</span>)
+grid <span class="string">on</span>
+grid <span class="string">minor</span>
+
+<span class="comment">% figure</span>
+<span class="comment">% plot(cpw_Space,R_0123)</span>
+<span class="comment">% legend('R0','R1','R2','R3')</span>
+<span class="comment">% grid on</span>
+<span class="comment">% grid minor</span>
+<span class="comment">% figure</span>
+<span class="comment">% plot(cpw_Space,L_0123)</span>
+<span class="comment">% legend('L0','L1','L2','L3')</span>
+<span class="comment">% grid on</span>
+<span class="comment">% grid minor</span>
+<span class="comment">% figure</span>
+<span class="comment">% plot(cpw_Space,G_0123)</span>
+<span class="comment">% legend('G0','G1','G2','G3')</span>
+<span class="comment">% grid on</span>
+<span class="comment">% grid minor</span>
+<span class="comment">% figure</span>
+<span class="comment">% plot(cpw_Space,C_0123)</span>
+<span class="comment">% legend('C0','C1','C2','C3')</span>
+<span class="comment">% grid on</span>
+<span class="comment">% grid minor</span>
+</pre><pre class="codeoutput">    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.49% 
+ Average error ratio of R:1.25% 
+ Maxium error ratio of L :3.55% 
+ Average error ratio of L:0.30% 
+ Maxium error ratio of G :227.34% 
+ Average error ratio of G:8.35% 
+ Maxium error ratio of C :1.04% 
+ Average error ratio of C:0.47% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.49% 
+ Average error ratio of R:1.24% 
+ Maxium error ratio of L :3.55% 
+ Average error ratio of L:0.30% 
+ Maxium error ratio of G :227.34% 
+ Average error ratio of G:8.21% 
+ Maxium error ratio of C :1.04% 
+ Average error ratio of C:0.47% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :1646.05% 
+ Average error ratio of Real(S11):15.62% 
+ Maxium error ratio of Imag(S11) :54.86% 
+ Average error ratio of Imag(S11):2.28% 
+ Maxium error ratio of Real(S12) :0.13% 
+ Average error ratio of Real(S12):0.09% 
+ Maxium error ratio of Imag(S12) :1.36% 
+ Average error ratio of Imag(S12):0.26% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :4.51% 
+ Average error ratio of alpha:1.39% 
+ Maxium error ratio of beta :1.00% 
+ Average error ratio of beta:0.27% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=11.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.81% 
+ Average error ratio of R:1.39% 
+ Maxium error ratio of L :2.90% 
+ Average error ratio of L:0.27% 
+ Maxium error ratio of G :127.39% 
+ Average error ratio of G:5.78% 
+ Maxium error ratio of C :1.05% 
+ Average error ratio of C:0.44% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=11.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.81% 
+ Average error ratio of R:1.35% 
+ Maxium error ratio of L :2.90% 
+ Average error ratio of L:0.27% 
+ Maxium error ratio of G :127.39% 
+ Average error ratio of G:5.70% 
+ Maxium error ratio of C :1.05% 
+ Average error ratio of C:0.43% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :502.05% 
+ Average error ratio of Real(S11):12.46% 
+ Maxium error ratio of Imag(S11) :1556.65% 
+ Average error ratio of Imag(S11):22.60% 
+ Maxium error ratio of Real(S12) :0.13% 
+ Average error ratio of Real(S12):0.07% 
+ Maxium error ratio of Imag(S12) :1.16% 
+ Average error ratio of Imag(S12):0.22% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :4.64% 
+ Average error ratio of alpha:1.25% 
+ Maxium error ratio of beta :0.98% 
+ Average error ratio of beta:0.24% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=19.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=11.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.78% 
+ Average error ratio of R:1.58% 
+ Maxium error ratio of L :2.28% 
+ Average error ratio of L:0.28% 
+ Maxium error ratio of G :141.44% 
+ Average error ratio of G:6.90% 
+ Maxium error ratio of C :1.29% 
+ Average error ratio of C:0.52% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=19.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=11.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.79% 
+ Average error ratio of R:1.55% 
+ Maxium error ratio of L :2.28% 
+ Average error ratio of L:0.29% 
+ Maxium error ratio of G :141.44% 
+ Average error ratio of G:6.85% 
+ Maxium error ratio of C :1.29% 
+ Average error ratio of C:0.52% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :6.67% 
+ Average error ratio of Real(S11):2.31% 
+ Maxium error ratio of Imag(S11) :10.34% 
+ Average error ratio of Imag(S11):4.64% 
+ Maxium error ratio of Real(S12) :0.16% 
+ Average error ratio of Real(S12):0.07% 
+ Maxium error ratio of Imag(S12) :0.97% 
+ Average error ratio of Imag(S12):0.23% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :3.61% 
+ Average error ratio of alpha:1.23% 
+ Maxium error ratio of beta :0.98% 
+ Average error ratio of beta:0.27% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=10.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.91% 
+ Average error ratio of R:1.64% 
+ Maxium error ratio of L :2.19% 
+ Average error ratio of L:0.27% 
+ Maxium error ratio of G :148.91% 
+ Average error ratio of G:6.75% 
+ Maxium error ratio of C :1.49% 
+ Average error ratio of C:0.51% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=18.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=10.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.91% 
+ Average error ratio of R:1.61% 
+ Maxium error ratio of L :2.19% 
+ Average error ratio of L:0.28% 
+ Maxium error ratio of G :148.91% 
+ Average error ratio of G:6.73% 
+ Maxium error ratio of C :1.49% 
+ Average error ratio of C:0.50% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :6.74% 
+ Average error ratio of Real(S11):1.83% 
+ Maxium error ratio of Imag(S11) :8.27% 
+ Average error ratio of Imag(S11):2.05% 
+ Maxium error ratio of Real(S12) :0.18% 
+ Average error ratio of Real(S12):0.06% 
+ Maxium error ratio of Imag(S12) :0.99% 
+ Average error ratio of Imag(S12):0.21% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :3.78% 
+ Average error ratio of alpha:0.88% 
+ Maxium error ratio of beta :0.98% 
+ Average error ratio of beta:0.26% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=17.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=10.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.71% 
+ Average error ratio of R:1.65% 
+ Maxium error ratio of L :1.80% 
+ Average error ratio of L:0.26% 
+ Maxium error ratio of G :147.68% 
+ Average error ratio of G:7.11% 
+ Maxium error ratio of C :1.74% 
+ Average error ratio of C:0.49% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=17.50 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=10.00 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.71% 
+ Average error ratio of R:1.61% 
+ Maxium error ratio of L :1.80% 
+ Average error ratio of L:0.26% 
+ Maxium error ratio of G :147.68% 
+ Average error ratio of G:7.10% 
+ Maxium error ratio of C :1.74% 
+ Average error ratio of C:0.48% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :6.60% 
+ Average error ratio of Real(S11):1.63% 
+ Maxium error ratio of Imag(S11) :6.61% 
+ Average error ratio of Imag(S11):1.33% 
+ Maxium error ratio of Real(S12) :0.22% 
+ Average error ratio of Real(S12):0.07% 
+ Maxium error ratio of Imag(S12) :1.11% 
+ Average error ratio of Imag(S12):0.22% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :3.91% 
+ Average error ratio of alpha:1.32% 
+ Maxium error ratio of beta :1.13% 
+ Average error ratio of beta:0.25% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=17.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.40% 
+ Average error ratio of R:1.60% 
+ Maxium error ratio of L :1.83% 
+ Average error ratio of L:0.24% 
+ Maxium error ratio of G :151.47% 
+ Average error ratio of G:8.52% 
+ Maxium error ratio of C :2.15% 
+ Average error ratio of C:0.49% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=17.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.41% 
+ Average error ratio of R:1.56% 
+ Maxium error ratio of L :1.83% 
+ Average error ratio of L:0.25% 
+ Maxium error ratio of G :151.47% 
+ Average error ratio of G:8.52% 
+ Maxium error ratio of C :2.15% 
+ Average error ratio of C:0.48% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :7.05% 
+ Average error ratio of Real(S11):1.70% 
+ Maxium error ratio of Imag(S11) :5.94% 
+ Average error ratio of Imag(S11):1.05% 
+ Maxium error ratio of Real(S12) :0.29% 
+ Average error ratio of Real(S12):0.09% 
+ Maxium error ratio of Imag(S12) :1.31% 
+ Average error ratio of Imag(S12):0.24% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :5.94% 
+ Average error ratio of alpha:2.26% 
+ Maxium error ratio of beta :1.39% 
+ Average error ratio of beta:0.27% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC fit                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=16.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.47% 
+ Average error ratio of R:2.07% 
+ Maxium error ratio of L :1.24% 
+ Average error ratio of L:0.30% 
+ Maxium error ratio of G :144.11% 
+ Average error ratio of G:4.16% 
+ Maxium error ratio of C :2.29% 
+ Average error ratio of C:0.43% 
+=================================================================================
+
+    
+=================================================================================
+                            Summary of RLGC model                                  
+=================================================================================
+The corner frequencies of the RL network:f1=1.00 GHz	 f2=16.00 GHz	 f3=100.00 GHz
+ The corner frequencies of the RL network:f1=1.00 GHz	 f2=9.50 GHz	 f3=100.00 GHz
+  Maxium error ratio of R :5.47% 
+ Average error ratio of R:2.04% 
+ Maxium error ratio of L :1.24% 
+ Average error ratio of L:0.28% 
+ Maxium error ratio of G :144.11% 
+ Average error ratio of G:4.14% 
+ Maxium error ratio of C :2.29% 
+ Average error ratio of C:0.43% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of S parameters                                  
+=================================================================================
+ Maxium error ratio of Real(S11) :4.54% 
+ Average error ratio of Real(S11):1.49% 
+ Maxium error ratio of Imag(S11) :4.54% 
+ Average error ratio of Imag(S11):0.92% 
+ Maxium error ratio of Real(S12) :0.05% 
+ Average error ratio of Real(S12):0.03% 
+ Maxium error ratio of Imag(S12) :1.47% 
+ Average error ratio of Imag(S12):0.12% 
+=================================================================================
+
+    
+=================================================================================
+                            Error of alpha &amp; beta                                  
+=================================================================================
+ Maxium error ratio of alpha :4.12% 
+ Average error ratio of alpha:0.84% 
+ Maxium error ratio of beta :1.54% 
+ Average error ratio of beta:0.12% 
+=================================================================================
+
+</pre><img vspace="5" hspace="5" src="cpw_analysis_space_01.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_02.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_03.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_04.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_05.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_06.png" style="width:560px;height:420px;" alt=""> <img vspace="5" hspace="5" src="cpw_analysis_space_07.png" style="width:560px;height:420px;" alt=""> <p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2015b</a><br></p></div><!--
+##### SOURCE BEGIN #####
+clc;clear;close all
+dbstop if error;
+folder_path = './S_parameters_sim/space/';
+cpw_space = 4:1:10;
+files_num = length(cpw_space);
+R_0123 = zeros(4,files_num);
+L_0123 = zeros(4,files_num);
+G_0123 = zeros(4,files_num);
+C_0123 = zeros(4,files_num);
+
+f_fit = zeros(2,files_num);
+Err_RLGC_model = zeros(8,files_num);
+Err_alpha_beta = zeros(4,files_num);
+
+len = 200;
+num_pi = ceil(len/12.5);
+len = len*1e-6;
+%  regexp(files_name(5).name,'W\d{1,2}', 'match')
+freq_min_max = [0.5,100]*1e9;
+f_2_zone = (5:0.5:25)*1e9;
+f_1 = 1e9*ones(1,length(f_2_zone));%GHz
+f_3 = 100e9*ones(1,length(f_2_zone));
+f_123_mat = [f_1;f_2_zone;f_3];
+lambda = ones(2,2)*0.5;
+for k = 1:files_num
+    file_name = [folder_path,'L2W4S',num2str(cpw_space(k)),'.csv'];
+    
+    disp_sw = 'off';
+    [ RLGC_0123_fit,f_fit_RL,f_fit_GC,Err_RLGC_fit,Err_RLGC_model(:,k),Err_s,Err_alpha_beta(:,k)] ...,
+        = cpw_single( file_name,len,freq_min_max,f_123_mat,lambda,num_pi,disp_sw );
+    R_0123(:,k) = RLGC_0123_fit(:,1);
+    L_0123(:,k) = RLGC_0123_fit(:,2);
+    G_0123(:,k) = RLGC_0123_fit(:,3);
+    C_0123(:,k) = RLGC_0123_fit(:,4);
+    f_fit(1,k) = f_fit_RL(2);
+    f_fit(2,k) = f_fit_GC(2);
+end
+
+
+plot_4_single(cpw_space,R_0123,{'R0','R1','R2','R3'},'Space [\mum]','Resistance [\Omega/m]','R0123','-*r');
+plot_4_single(cpw_space,L_0123,{'L0','L1','L2','L3'},'Space [\mum]','Inductance [H/m]','L0123','-*r');
+plot_4_single(cpw_space,G_0123,{'G0','G1','G2','G3'},'Space [\mum]','Conductance [S/m]','G0123','-*r');
+plot_4_single(cpw_space,C_0123,{'C0','C1','C2','C3'},'Space [\mum]','Capacitance [F/m]','C0123','-*r');
+plotyy_4(cpw_space,Err_RLGC_model*100,{'R','L','G','C'},'Space [\mum]',{'ave err(%)','max err(%)'},'Err of RLGC');
+plotyy_2(cpw_space,Err_alpha_beta*100,{'\alpha','\beta'},'Space [\mum]',{'ave err(%)','max err(%)'},'Err of alpha & beta');
+
+figure
+plot(cpw_space,f_fit(1,:)./1e9,'-*r',cpw_space,f_fit(2,:)./1e9,'-ob')
+legend('Freq\_RL','Freq\_GC')
+grid on
+grid minor
+
+% figure
+% plot(cpw_Space,R_0123)
+% legend('R0','R1','R2','R3')
+% grid on
+% grid minor
+% figure
+% plot(cpw_Space,L_0123)
+% legend('L0','L1','L2','L3')
+% grid on
+% grid minor
+% figure
+% plot(cpw_Space,G_0123)
+% legend('G0','G1','G2','G3')
+% grid on
+% grid minor
+% figure
+% plot(cpw_Space,C_0123)
+% legend('C0','C1','C2','C3')
+% grid on
+% grid minor
+
+
+##### SOURCE END #####
+--></body></html>

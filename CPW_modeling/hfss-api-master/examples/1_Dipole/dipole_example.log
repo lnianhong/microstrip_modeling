@@ -1,0 +1,17 @@
+ 
+ANSYS Electronics Desktop Version 2016.1.0, Build: 2016-04-18 16:03:38
+Location: D:\AnsysEM\AnsysEM17.1\Win64\ansysedt.exe
+Batch Script: E:/研究生期间2015-2018/研究生课程学习/微带线建模/hfss-api-master/examples/1_Dipole/dipole_example.vbs
+Starting Batch Run: 3:46:39 下午  十二月 12, 2016
+Running as user: MY-PC\MY
+Temp directory: C:\Users\MY\AppData\Local\Temp
+Project directory: C:\Users\MY\Documents\Ansoft
+[warning] Script Error (Code 80070226) in file:  E:/研究生期间2015-2018/研究生课程学习/微带线建模/hfss-api-master/examples/1_Dipole/dipole_example.vbs
+Description: Project files must be saved using the .aedt extension.
+Line(153):  "oProject.SaveAs _"
+
+[Exiting application]
+-- Message Window --
+      *Global - Messages
+        [error] Script macro error: Script Error (Code 80070226) in file:  E:/研究生期间2015-2018/研究生课程学习/微带线建模/hfss-api-master/examples/1_Dipole/dipole_example.vbs Description: Project files must be saved using the .aedt extension. Line(153):  "oProject.SaveAs _" 
+-- Message Window --

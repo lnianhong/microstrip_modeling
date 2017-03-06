@@ -1,0 +1,26 @@
+clc;clear;%close all;
+space = 10;
+save_name = ['tmp_data/cpwmodelW2-10_S',num2str(space),'scalable','.mat'];
+data = load(save_name);
+cpwmodel_width = data.cpwmodel_all;clear data;
+
+err_struct_unit  = get_errors_unit_length( cpwmodel_width.scalable_width_model );
+err_struct_unit.var = [cpwmodel_width.scalable_width_model.width]*1e6;
+
+%% plot error of RLGC
+plot_err_RLGC( err_struct_unit.ave_err_RLGC,err_struct_unit.max_err_RLGC,...
+               err_struct_unit.var,'width [\mum]','Error of RLGC-Scalable')
+%% plot error of gamma and Z           
+ave_err_g_z = [err_struct_unit.ave_err_alpha;...
+               err_struct_unit.ave_err_beta;...
+               err_struct_unit.ave_err_Z_real;...
+               err_struct_unit.ave_err_Z_imag];
+       
+max_err_g_z = [err_struct_unit.max_err_alpha;...
+               err_struct_unit.max_err_beta;...
+               err_struct_unit.max_err_Z_real;...
+               err_struct_unit.max_err_Z_imag];
+plot_err_gamma_Z( ave_err_g_z,max_err_g_z,...
+                err_struct_unit.var,'width [\mum]','Error of Gamma & Z -Scalable')
+
+

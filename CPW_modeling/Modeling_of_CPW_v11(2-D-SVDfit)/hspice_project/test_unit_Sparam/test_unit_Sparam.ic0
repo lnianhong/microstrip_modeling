@@ -1,0 +1,16 @@
+* "simulator" "HSPICE" 
+* "version" "C-2009.09 32-BIT"
+* "format" "HSP"
+* "rundate" "11:03:51 02/22/2017 "
+* "netlist" "E:\microstrip_modeling\CPW_modeling\Modeling_of_CPW_v11(2-D-SVDfit)\hspice_project\test_unit_Sparam\test_unit_Sparam.sp "
+* "runtitle" ".title test_unit_sparam"
+* time =    0.            
+* temperature =   27.0000        
+*** BEGIN: Saved Operating Point ***                     
+.option 
++ gmindc=   1.0000p       
+.nodeset
++ a =   0.            
++ b =   0.            
++ c =   0.            
+***   END: Saved Operating Point ***                     

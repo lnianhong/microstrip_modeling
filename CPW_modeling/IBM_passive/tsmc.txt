@@ -1,0 +1,63 @@
+L1     a       3       'Lt/(300u)*(l*scale)*l_tlfac'
+
+R1    3       4       'Rt/(300u)*(l*scale)*rm_tlfac'
+
+LS1   3       11     'Ls/(300u)*(l*scale)'
+
+RS1  11     4       'Rs/(300u)*(l*scale)'
+
+COX1        4       p       'Cox/(300u)*(l*scale)*cox_tlfac'
+
+ 
+
+L2     4       5       'Lt/(300u)*(l*scale)*l_tlfac'
+
+R2    5       6       'Rt/(300u)*(l*scale)*rm_tlfac'
+
+LS2   5       12     'Ls/(300u)*(l*scale)'
+
+RS2  12     6       'Rs/(300u)*(l*scale)'
+
+COX2        6       p       'Cox/(300u)*(l*scale)*cox_tlfac'
+
+ 
+
+COX3        6       p       'Cox/(300u)*(l*scale)*cox_tlfac'
+
+R3    6       7       'Rt/(300u)*(l*scale)*rm_tlfac'
+
+RS3  6       13     'Rs/(300u)*(l*scale)'
+
+LS3   13     7       'Ls/(300u)*(l*scale)'
+
+L3     7       8       'Lt/(300u)*(l*scale)*l_tlfac'
+
+ 
+
+COX4        8       p       'Cox/(300u)*(l*scale)*cox_tlfac'
+
+R4    8       9       'Rt/(300u)*(l*scale)*rm_tlfac'
+
+RS4  8       14     'Rs/(300u)*(l*scale)'
+
+LS4   14     9       'Ls/(300u)*(l*scale)'
+
+L4     9       b       'Lt/(300u)*(l*scale)*l_tlfac'
+
+ 
+
+CSUB1      4       15     'Csub/(300u)*(l*scale)*csub_tlfac'
+
+RSUB1      15     p       'Rsub*300u/(l*scale)*rsub_tlfac'
+
+CSUB2      6       16     'Csub/(300u)*(l*scale)*csub_tlfac'
+
+RSUB2      16     p       'Rsub*300u/(l*scale)*rsub_tlfac'
+
+CSUB3      6       17     'Csub/(300u)*(l*scale)*csub_tlfac'    
+
+RSUB3      17     p       'Rsub*300u/(l*scale)*rsub_tlfac'
+
+CSUB4      8       18     'Csub/(300u)*(l*scale)*csub_tlfac'
+
+RSUB4      18     p       'Rsub*300u/(l*scale)*rsub_tlfac'

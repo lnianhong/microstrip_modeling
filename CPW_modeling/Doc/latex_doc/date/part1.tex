@@ -1,0 +1,146 @@
+\section{建模提参理论分析}
+\subsection{新型电感传输线模型}
+本方法主要参考文献\cite{brinkhoff2008scalable}中的工作并做一定改进。受趋肤效应、衬底漏电等效应的影响电感和传输
+线等无源元件的特性阻抗和传播常数等参数是与频率相关的量。单位长度电感和传输线模型
+可用图\ref{fig:RLGC}所示电路模型等效，图\ref{fig:RLGC}所示单位长度传输线等效电路模型
+中的RLGC参数与频率无关，无法表示在毫米波应用下无源元件RLGC特性参数与频率相关
+这一以特性，为了表示这一特性，需要对RLGC模型进行拓展。
+\begin{figure}[t]
+  \centering
+  \includegraphics{RLGC.jpg}
+  \caption{单位长度传输线等效电路模型}\label{fig:RLGC}
+\end{figure}
+\par
+单$\pi$和$2\pi$模型是传输线和电感的常用模型，但是这两个模型的难以计算解析解、
+需要通过算法调整优化、较难准确提取，模型结果难以和仿真或是测试结果拟合上，
+且单$\pi$模型适用频率为10GHz以下\cite{yue1998chip}，$2\pi$适用频率60GHz以下\cite{dickson200530}，此两个模型的模型参数可放缩公式也难以建立。
+\par
+基于以上原因，文献\cite{brinkhoff2008scalable}提出了图\ref{fig:RLGC}所示的新型传输线和电感模型来拟合RLGC参数，此模型为经验模型，
+所有模型参数均与频率无关。模型由串联部分和并联部分组成，串联部分与模型本身电感以及串联电阻损耗有关，
+并联部分与模型对地电容以及对地电导有关。此经验模型的提出基于三方面的考虑：
+%\begin{itemize}
+%  \item 目前不存在一个物理模型能够描述直流到毫米波这么宽频段内的传输线和电感的频率特性；
+%  \item 物理模型的参数的准确提取是一个困难的事；
+%  \item 物理模型仅仅适用物理结构的器件，经验模型的通用性更广泛；
+%\end{itemize}
+
+\begin{enumerate}[itemsep=1pt, topsep=12pt, partopsep=0pt,label={(\arabic*)}] %设置间距
+  \item 目前不存在一个物理模型能够描述直流到毫米波这么宽频段内的传输线和电感的频率特性；
+  \item 物理模型的参数的准确提取是一个困难的事；
+  \item 物理模型仅仅适用物理结构的器件，经验模型的通用性更广泛；
+\end{enumerate}
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=12cm]{paper_model.jpg}
+  \caption{新型传输线和电感模型}\label{fig:paper_model.jpg}
+\end{figure}
+\par
+图 \ref{fig:paper_model.jpg}中的模型在直流下没有对地的电导，就实际情况而言是不太合理的，
+因此对图\ref{fig:paper_model.jpg}所示模型添加了对地电导，改进后的模型如图 \ref{fig:newmodel}所示。
+
+\begin{figure}[htb]
+  \centering
+  \includegraphics[width=12cm]{newmodel.jpg}
+  \caption{改进后的新型传输线和电感模型}\label{fig:newmodel}
+\end{figure}
+
+\subsection{模型参数提取}
+为了获得可放缩的模型，需要大量的模型来确定放缩公式，基于时间和成本的考虑，
+通过实际器件的测试数据校正电磁场仿真参数，通过电磁场仿真获得大量模型仿真结果。
+使用电磁场仿真的结果对器件进行建模和参数提取，最后将其结果和测试数据进行对比验证。
+\par
+此模型是用来拟合单位器件长度RLGC参数，器件单位长度RLGC参数可通过电磁场得到S参数后转换而来\cite{eisenstadt1992s}，
+器件单位长度RLGC参数是与频率相关的。
+\par
+图 \ref{fig:newmodel}模型中，串联部分和并联部分模型参数提取可分开进行。
+
+
+\subsubsection{串联部分的模型参数提取}
+串联部分由直流电阻$R_0$、高频电感$L_0$和n个$R-L$并联网络组成。第k个$R-L$并联网络参数和第k个角频率$\omega_{sk}$满足如下关系：
+\begin{equation}\label{equ:omegas}
+  \omega_{sk}=\frac{R_k}{L_k}
+\end{equation}
+
+对于由n个$R-L$并联网络组成的模型，其串联部分整体电阻和电感计算可得：
+%\begin{equation}\label{equ:R_omega}
+%  R_{omega}=R_0+\sum_{k=1}^{n} \frac{R_k (\frac{\omega}{\omega_{sk}})^2} {{1+({\frac{\omega}{\omega_{sk}}})^2}}
+%\end{equation}
+
+\begin{align}
+  R(\omega)&=R_0+\sum_{k=1}^{n} \frac{R_k (\frac{\omega}{\omega_{sk}})^2} {{1+({\frac{\omega}{\omega_{sk}}})^2}}  \label{equ:R_omega} \\
+  L(\omega)&=L_0+\sum_{k=1}^{n} \frac{L_k} {{1+({\frac{\omega}{\omega_{sk}}})^2}}  \label{equ:L_omega}
+\end{align}
+
+对于0--100GHz频段内取$n=3$便能实现较好的拟合，选择合适角频率使其满足：
+\begin{equation}
+ ( \frac{\omega_{s2}}{\omega_{s1}})^2, \ {( \frac{\omega_{s2}}{\omega_{s1}})^2}\gg 1
+\end{equation}
+
+假设$R_1,R_2,R_3$具有相同的数量级，$L_1,L_2,L_3$具有相同数量级，则式\ref{equ:R_omega}和\mbox{式 \ref{equ:L_omega}}可化简为：
+\begin{gather}
+  R(\omega_{s1})=R_0+\frac{R_1}{2}  \label{equ:ss1} \\
+  R(\omega_{s2})=R_0+R_1+\frac{R_2}{2} \label{equ:ss2}  \\
+  R(\omega_{s3})=R_0+R_1+R_2+\frac{R_3}{2} \label{equ:ss3} \\
+  L(\omega_{s1})=L_0+\frac{R_1}{2\omega_1}+\frac{R_2}{\omega_2}+\frac{R_3}{\omega_3} \label{equ:ss4} \\
+   L(\omega_{s2})=L_0+\frac{R_2}{2\omega_2}+\frac{R_3}{\omega_3} \label{equ:ss5}
+\end{gather}
+
+通过求解式 \ref{equ:omegas}，式 \ref{equ:ss1}--式 \ref{equ:ss5}组成的方程组，
+可求得模型串联部分参数$R_0  ,R_1,R_2$, $R_3$, $L_0$, $L_1$, $L_2$, $L_3$  。
+
+\subsubsection{并联部分的模型参数提取}
+并联部分由直流对地电导$G_0$、高频对地电容$C_0$和n个$C-G$串联网络组成。
+第k个$C-G$串联网络参数和第k个角频率$ω_{pk}$满足如下关系：
+\begin{equation}
+  \omega_{pk}=\frac{G_k}{C_k} \label{equ:omegap}
+\end{equation}
+
+对于由n个$C-G$串联网络组成的模型，其并联联部分整体电阻和电感计算可得：
+\begin{align}
+  G(\omega)&=G_0+\sum_{k=1}^{n} \frac{G_k (\frac{\omega}{\omega_{pk}})^2} {{1+({\frac{\omega}{\omega_{pk}}})^2}}  \label{equ:G_omega} \\
+  C(\omega)&=C_0+\sum_{k=1}^{n} \frac{C_k} {{1+({\frac{\omega}{\omega_{pk}}})^2}}  \label{equ:C_omega}
+\end{align}
+
+对于0-100GHz频段内取n=3便能实现较好的拟合，选择合适角频率使其满足：
+\begin{equation}
+ ( \frac{\omega_{p2}}{\omega_{p1}})^2, \ {( \frac{\omega_{p3}}{\omega_{p2}})^2}\gg 1
+\end{equation}
+
+假设$G_1,G_2,G_3$具有相同的数量级$C_1,C_2,C_3$具有相同数量级，则\mbox{式\ref{equ:G_omega}，式\ref{equ:C_omega}}可化简为：
+\begin{gather}
+  G(\omega_{s1})=G_0+\frac{G_1}{2}  \label{equ:pp1} \\
+  G(\omega_{s2})=G_0+G_1+\frac{G_2}{2} \label{equ:pp2}  \\
+  G(\omega_{s3})=G_0+G_1+G_2+\frac{G_3}{2} \label{equ:pp3} \\
+  C(\omega_{s1})=C_0+\frac{G_1}{2\omega_1}+\frac{G_2}{\omega_2}+\frac{G_3}{\omega_3} \label{equ:pp4} \\
+   C(\omega_{s2})=C_0+\frac{G_2}{2\omega_2}+\frac{G_3}{\omega_3} \label{equ:pp5}
+\end{gather}
+
+通过求解式 \ref{equ:omegap}，式 \ref{equ:pp1}--式 \ref{equ:pp5}组成的方程组，
+可求得模型串联部分参数$G_0  ,G_1,G_2$, $G_3$, $C_0$, $C_1$, $C_2$, $C_3$  。
+
+\subsubsection{模型参数优化}
+文献\cite{brinkhoff2008scalable}中，直接取$\omega_{p1}$,$\omega_{s1}=2π×1GHz$，$\omega_{p2}$,$\omega_{s2}=2π×10GHz$，$\omega_{p3},\omega_{s3}=2π×100GHz$
+即可实现较高的模型拟合精度，但实际发现对$\omega_{si}$,$\omega_{pi}$如此取值的话只针对特殊结构特殊工艺下的
+模型有效，对于一般的模型会带来非常大的拟合误差。为了实现拟合误差的最小化需要对$\omega_{si}$,$\omega_{pi}$进行调整优化。
+为了简化问题，取$\omega_{p1}$,$\omega_{s1}=2π×1GHz$，$\omega_{p3},\omega_{s3}=2π×100GHz$固定不变，$\omega_{p2}$,$\omega_{s2}$作为优化变量。
+由于模型串联部分和并联部分的数学形式完全一样，其优化算法也是一样的，$\omega_{s2}$,$\omega_{p2}$的优化过程完全一致，下面以优化$\omega_{s2}$为例进行说明。
+优化的目标是使模型拟合误差最小化，采用相对误差作为误差衡量标准，单位长度R、L拟合误差函数如公式\ref{equ:err_RL}:
+
+\begin{align}\label{equ:err_RL}
+Err({\omega _{s2}}) =\sum\limits_{i = 1}^m {{W_{Ri}}} \left| {1 - \frac{{{R_0} + \frac{{{R_1}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s1}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s1}}}}} \right)}^2}}} + \frac{{{R_2}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s2}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s2}}}}} \right)}^2}}} + \frac{{{R_3}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s3}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s3}}}}} \right)}^2}}}}}{{R\left( {{\omega _i}} \right)}}} \right|  & \notag \\
++\sum\limits_{i = 1}^m {{W_{Li}}} \left| {1 - \frac{{{L_0} + \frac{{{L_1}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s1}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s1}}}}} \right)}^2}}} + \frac{{{L_2}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s2}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s2}}}}} \right)}^2}}} + \frac{{{L_3}{{\left( {\frac{{{\omega _i}}}{{{\omega _{s3}}}}} \right)}^2}}}{{1 + {{\left( {\frac{{{\omega _i}}}{{{\omega _{s3}}}}} \right)}^2}}}}}{{L\left( {{\omega _i}} \right)}}} \right| &
+\end{align}
+\begin{equation}\label{equ:weight}
+  \sum_{i=1}^{m}W_{Ri}+\sum_{i=1}^{m}W_{Li}=1 \qquad    W_{Ri}\geq0,W_{Li}\geq0
+\end{equation}
+
+公式\ref{equ:err_RL}中m为电磁场仿真的频点数，$R(\omega_i)$和$L(\omega_i)$为各频点下图 \ref{fig:RLGC}单位长度电阻和电感值，$W_{Ri}$和$W_{Li}$为各频点的优化权重。
+\par
+误差函数的取值是离散的且需要考虑的取值点较少，可通过遍历的方法求得误差函数的最小值，找到最佳的$\omega_s2$以及模型参数$R_0$,$R_1$,$R_2$,$R_3$,$L_0$,$L_1$,$L_2$,$L_3$。
+建模提参整个流程如图\ref{fig:process_flow}所示。
+\begin{figure}[htb]
+  \centering
+  \includegraphics[scale=0.6]{process_flow.pdf}
+  \caption{建模提参流程图}\label{fig:process_flow}
+\end{figure}

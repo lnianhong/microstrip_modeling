@@ -1,0 +1,864 @@
+* Path, Component, Release: bicmos8hp/rel/Spectre/models/indstack.scs, bc8hp_models, mod_bicmos8hp
+* CMVC Revision: 1.10 12/11/30 10:23:10
+***********************************************************************
+*
+*   Licensed Materials - Property of IBM
+*
+*   IBM CONFIDENTIAL
+*   (C) 2011 IBM Corporation
+*
+*   US Government Users Restricted Rights - Use, duplication
+*   or disclosure restricted by GSA ADP Schedule contract with
+*   IBM Corporation.
+*
+***************************************************************************
+*
+*  IBM Generic indstack octagonal Inductor (two coupled spirals)
+*
+***************************************************************************
+*
+* The inductor model contains:
+*
+*  1. Two R-L-K networks to represent the variation in inductance and
+*     resistance due to skin and proximity effects for the two halves of the
+*     spiral. Nine mutual inductances representing the magnetic coupling
+*     between the primary and secondary halves of the spiral.
+*
+*  2. Two series inductors (lpra, lsea), representing the extra inductance due
+*     to magnetic coupling between the two halves of the spiral. They are
+*     magnetically coupled with a coupling coefficient (kpsa), if necessary.
+*
+*  3. Two additional series resistors (ruppr, rupse) representing the underpass
+*     resistance.
+*
+*  4. Three parallel capacitors that represent the capacitance present between
+*     the outermost turn of the primary spiral and the innermost turn of the
+*     secondary spiral (copis), the outermost turn of the secondary spiral
+*     and the innermost turn of the secondary spiral(cosis), and the
+*     outermost turns of the primary and secondary spirals (copos).
+*
+*  5. Oxide capacitances [coxout(p,s) and coxin(p,s)] to simulate the
+*     capacitance between the two spirals and the substrate.
+*
+*  6. Substrate capacitances [csxout(p,s) and csxin(p,s)] and resistances
+*     [rsxinout(p,s) and rsxin(p,s)] to simulate the effect of the conductive
+*      substrate loss.
+*
+*  7. Groundplane center-tap resistance (rpcct) for M1 groundplane.
+*     Set to 0 for BF groundplane case.
+*
+*                             || (copos)
+*       +---------------------||----------------------------------------+
+*       |                     ||                                        |
+*       |                                                               |
+*       |                                                               |
+*       |           (copis)                                             |
+*       |               ||                                              |
+*       +---------------||----------------+-o inse                      |
+*       |               ||         inpr   |                             |
+*       |                            o    |                             |
+*       |                 ________   |    |         ||(cosis)           |
+*       |                |        |  |    +---------||------------------+
+*       |     +----------| (kpsa) |- | -- | ----+   ||                  |
+*       |    \|/         |________|  |    |    \|/                      |
+*       |   ______(rup-____________  |    |  ______ (rup- ____________  |
+* outpr |  |      |pr)|skin/proxim-| |    | |      | se) |skin/proxim-| |outse
+* o-----+--|(lpra)|/\/|ity effect  |-+    +-|(lsea)|/\/\/|ity effect  |-+---o
+*       |  |______|   | "primary"  | |    | |______|     |"secondary" | |
+*       |             |____________| |    |              |____________| |
+*       |                 /|\        |    |                    /|\      |
+*       |                  |         |    |  +---------------+  |       |
+*       |                  |         |    |  |prim. to sec.  |  |       |
+*       |                  +-----------------|coupling coeff |- +       |
+*       |                            |    |  |matrix(kxxprse)|          |
+*       |                            |    |  +---------------+          |
+*     -----                         ---  ---                          -----
+*     -----(coxoutp)        (coxinp)---  ---(coxins)         (coxouts)-----
+*       |  3                       4 |    | 5                        6  |
+*       +-----+                  +---+    +---+                   +-----+
+*       |     |                  |   |    |   |                   |     |
+*       |     |            (csx- |   |    |   |                   |     |
+*       \     |             inp) \   |    |   \ (csx-             \     |
+* (rsx- /   -----(csx-     (rsx- /  ---  ---  /  ins)       (rsx- /   -----(csx-
+*  outp)\   ----- outp)     inp) \  ---  ---  \ (rsx-        outs)\   -----outs)
+*       /     |                  /   |    |   /  ins)             /     |
+*       |     |                  |   |    |   |                   |     |
+*       |     |                  |   |    |   |                   |     |
+*       +-----+-----------------+----+-+--+---+-------------------+-----+
+*                                      | gp
+*                                      |
+*                                      \
+*                                      /
+*                                      \  (rm1ct)
+*                                      /
+*                                      \
+*                                      |
+*                                      |
+*                                      o
+*                       ref (substrate/groundplane)
+*
+********************************************************************************
+*
+*                 Skin/Proximity Effect Network "Primary"           Primary - Secondary Coupling Matrix
+*                 ---------------------------------------           -----------------------------------
+*
+*         Proximity Effect                          Skin Effect
+*       ______________________              ___________________________   __________________
+*      /                      \            /                           \ /                  \
+*                   _______                                  _______
+*         (rprf3)  |       |                   (rpr3a)      |       |
+*      +-/\/\/\/\--|(lprf3)|--+            +---/\/\/\/\-----|(lpr3a)|--+  \      \       \
+*      |           |_______|  |    /       |                |_______|  |k13prse k23prse k33prse
+*      |                      |    |    /  |                           |  |      |       |
+*      |            _______   |    | k23pra|                 _______   |  |      |       |
+*      |  (rprf2)  |       |  |    |    \  |   (rpr2a)      |       |  |  |      |       |
+*      +-/\/\/\/\--|(lprf2)|--+   k13pra   +---/\/\/\/\-----|(lpr2a)|--+  \      \       \
+*      |           |_______|  |    |    /  |                |_______|  |k12prse k22prse k32prse
+*      |                      |    | k12pra|                           |  |      |       |
+*      |            _______   |    |    \  |                 _______   |  |      |       |
+*      |  (rprf1)  |       |  |    \       |   (rpr1a)      |       |  |  |      |       |
+*   o--+-/\/\/\/\--|(lprf1)|--+------------+---/\/\/\/\-----|(lpr1a)|--+--\-o    \       \
+*                  |_______|                                |_______|   k11prse k21prse k31prse
+*                                                                         |      |       |
+*                                                                         |      |       |
+*                Skin/Proximity Efect Network "Secondary"                 |      |       |
+*                ----------------------------------------                 |      |       |
+*         Proximity Effect                          Skin Effect           |      |       |
+*       ______________________              ___________________________   |      |       |
+*      /                      \            /                           \  |      |       |
+*                   _______                                  _______      |      |       |
+*         (rsrf3)  |       |                   (rse3a)      |       |     |      |       |
+*      +-/\/\/\/\--|(lsrf3)|--+            +---/\/\/\/\-----|(lse3a)|--+  |      |       /
+*      |           |_______|  |    /       |                |_______|  |  |      |
+*      |                      |    |    /  |                           |  |      |
+*      |            _______   |    | k23sea|                 _______   |  |      |
+*      |  (rsrf2)  |       |  |    |    \  |   (rse2a)      |       |  |  |      |
+*      +-/\/\/\/\--|(lsrf2)|--+   k13sea   +---/\/\/\/\-----|(lse2a)|--+  |      /
+*      |           |_______|  |    |    /  |                |_______|  |  |
+*      |                      |    | k12sea|                           |  |
+*      |            _______   |    |    \  |                 _______   |  |
+*      |  (rsrf1)  |       |  |    \       |   (rse1a)      |       |  |  /
+*   o--+-/\/\/\/\--|(lsrf1)|--+------------+---/\/\/\/\-----|(lse1a)|--+----o
+*                  |_______|                                |_______|
+******************************************************************************
+*
+simulator lang=spectre
+*
+subckt indstack (outpr inpr outse inse ref)
+parameters
++    xp     =  250u     // Largest outer dimension of primary spiral (m)
++    xs     =  250u     // Largest outer dimension of secondary spiral (m)
++    wp     =  10u      // Width of primary spiral turn (m)
++    ws     =  10u      // Width of secondary spiral turn (m)
++    sp     =  5u       // Actual primary turn to turn space (m)
++    ss     =  5u       // Secondary turn to turn space (m)
++    np     =  4.5      // Primary number of turns
++    ns     =  4.5      // Secondary number of turns
++    pgap   =  10u      // Gap between symmetric halves of the symmetric spiral (m)
++    pwu    =  15u      // Width of underpass (m)
++    pstack  =  2       //  0 -> single level spiral
+*                       //  1 -> parallel stacked spiral
+*                       //  2 -> series stacked spiral
+*                       //  3 -> symmetric, single level spiral
+*                       //  4 -> symmetric, parallel spiral
++    pgrnd   = 6        // Indicator for grounding scheme under spiral
+*                       // 6 = BF moat (Default)
+*                       // 8 = M1 groundplane
++    gprs   =  3.4      // groundplane sheet resistance (ohms.sq.) for
+*                       // case GNRD=-2.
++    tgprs  =  0.0040   // temperatute coefficient for groundplane res.
++    ctrs   =  0.076    // sheet resistance of M1 groundplane center-tap
++    tctrs  =  0.0034   // temperature coefficient of centertap resistance
++    rsx    =  0.135    // resistivity of substrate (ohm-m)
++    trsx   =  0.0085   // temperature coefficient of of substrate resistance
++    pdtemp =  0        // Temperature difference between element and
+*                       // circuit temperature (deg C).
++    delpr  =  0.32u    // line width bias for primary spiral (m/width)
++    prrs   =  0.007    // sheet resistance of primary spiral (ohms/sq.)
++    tprrs  =  0.0038   // temperature coefficient of primary spiral
++    prt    =  4.0u     // thickness of primary spiral
++    delse  =  0.0      // line width bias of secondary spiral (m/width)
++    sers   =  0.005    // sheet resistance ofsecondary spiral (ohms/sq.)
++    tsers  =  0.0038   // temperature coefficient of secondary spiral
++    sect   =  3.0u     // thickness of secondary spiral
++    secprt =  4.0u     // thickness between primary and secondary
++    delup  =  0.0      // linewidth bias of underpass (m/width)
++    uprs   =  0.005    // sheet resistance of underpass (ohms/sq.)
++    tuprs  =  0.0038   // temprature coefficient of underpass
++    upt    =  3.0u     // thickness of underpass metal (m)
++    cprs   =  0.0019m  // primary to substrate area capacitance (F/m^2)
++    cprsf  =  0.0179n  // primary to substrate fringing capacitance (F/m)
++    cmprsf =  0.0023n  // primary to substrate fringing capacitance (F/m)
+*                       // for embedded lines
++    cprpr  =  0.0679n  // primary turn to turn capacitance (F/m)
++    cpru   =  0.0091m  // primary to underpass capacitance (F/m^2)
++    cpruf  =  0.0175n  // primary to underpass fringing capacitance (F/m)
++    cmpruf =  0.0067n  // primary to underpass fringing capacitance (F/m)
+*                       // for embedded primary lines
++    cses   =  0.0029m  // secondary to substrate area capacitance (F/m^2)
++    csesf  =  0.0001n  // secondary to substrate fringing capacitance (F/m)
++    cmsesf =  0.0067n  // secondary to substrate fringing capacitance (F/m)
+*                       // for embedded lines
++    csese  =  0.0363n  // secondary turn to turn capacitance (F/m)
++    cprse  =  0.0091m  // primary to secondary area capacitance (F/m^2)
++    cprsef =  0.0538n  // primary to secondary fringing capacitance (F/m)
++    cmprsef=  0.0182n  // primary to secondary fringing capacitance (F/m)
+*                       // for embedded lines
++    cus    =  0.0029m  // underpass to substrate area capacitance (F/m^2)
++    cusf   =  0.0001n  // underpass to substrate fringing capacitance (F/m)
++    sxthk  =  737u     // substrate thickness (um)
+* optimization coefficients
++ prscrfmin = 0.8e-3
++ prscrfmax = 2.0e-3
++   prscrfa = 0.006
++   prscrfb = -0.4e-3
++      prfb = 1e-6
++     ppowa = 0.0
++     ppowb = 0.0
++     pamax = 4600
++       paa = -13000
++       pab = 100
++   condsib = 1
++    prgptb = 200
++  rsxcorrb = 1.3
++ csxcormax = 2.1
++  csxcorra = 1.2e-3
++  csxcorrb = -0.2891
++   pcmprsb = 1
++   pcmsesb = 1
++  pcofprsb = 1.5
++  pcofsesb = 1.5
++  pcoprseb = 1
++  pcmprseb = 1
++  posplps  = 0.1875
++  sosplps  = 0.375
++  posplx   = 0.15
++  plscrfmax= 0.2
++  plscrfa  = 0.3
++  plscrfb  = 0.05
++  slscrfa  = -0.429
++  slscrfb  = 0.486
++  pcoo     = 1.0
+*
+* Spiral turn widths
++ pwp= wp+delpr
++ pws= ws+delse
+*
+* calculate the total width of the wiring channel(ie. total width of one
+* side of the spiral(turn widths and turn spaces)
++ pww=np*pwp + (np-1)*psp
++ pww_n=pintp*pwp + (pintp-1)*psp
++ pww_m=(pintp+1)*pwp + (pintp)*psp
+* effective thickness of spiral turns
++ spt= ((pstack<=1)*1+(pstack>2))*prt+(pstack==2)*((prt+sect)/2)
+*
+* effective temperature coefficient of spiral metal resistivity
++ tsprs= (pstack==0)*tprrs+(pstack>=1)*((tprrs+tsers)/2)
+* Spiral turn to turn space
++ psp= (pstack<=1)*(np>1)*(wp+sp-pwp)+(pstack>1)*((np+ns)>1)*(wp+sp-pwp)
++ pss= (pstack<=1)*(ns>1)*(ws+ss-pws)+(pstack>1)*((np+ns)>1)*(ws+ss-pws)
+* symmetric spiral turn to turn space for composite spiral
++ psx= ((np+ns)>1)*(psp-pwp)/2
+*
+* symmetric spiral number of turns for composite spiral
++ nx= (np+ns)
+*
+* Underpass turn width (for single and parallel stacks only)
++ pwup= pwu+delup
+*
+* calculate the integer number of turns per spiral
++ pintp= (np|0)
++ pints= (ns|0)
++ pintx= (nx|0)
++ pintsp= (pstack>2)*pintx+(pstack<=2)*pintp
+*
+* calculate the fraction of turns beyond the integer number of turns
++ pfractp= np-pintp
++ pfracts= ns-pints
++ pfractx= nx-pintx
+*
+* calculate the ceil() of the number of turns for symmetric spirals
++ pceilx= (pfractx*1e3>0)*(pintx+1)+(pfractx*1e3==0)*pintx
+*
+* calculate hollowness (inner radius/outer radius)
++ hp= 1-(2*np*(pwp+psp))/(xp-pwp)
++ hs= 1-(2*ns*(pws+pss))/(xs-pws)
++ hx= 1-(2*nx*(pwp+psx))/(xp-pwp)
++ hgen= (pstack<=2)*hp+(pstack>2)*hx
+*
+* calculate inner diameter
++ dinp= xp-2*np*pwp-2*(np-1)*psp
++ dinp_n=xp-2*pintp*pwp-2*(pintp-1)*psp
++ dinp_m=xp-2*(pintp+1)*pwp-2*(pintp)*psp
++ dins= xs-2*ns*pws-2*(ns-1)*pss
++ dinx= xp-2*nx*pwp-2*(nx-1)*psx
+*
+* calculate average diameter
++ davgp= (xp+dinp)/2
++ davgp_n=(xp+dinp_n)/2
++ davgp_m=(xp+dinp_m)/2
++ davgs= (xs+dins)/2
++ davgx= (xp+dinx)/2
+*
+* calculate the effective outer diameter due to DC resistance - current crowding
++ deff=xp-(np+1.5)*pwp-(np-1)*psp
++ deff_n=xp-(pintp+1.5)*pwp-(pintp-1)*psp
++ deff_m=xp-(pintp+2.5)*pwp-(pintp)*psp
+*
+* calculate rho (O.D.-I.D.)/(O.D.+I.D.)
++ rhop= max(1e-6,(xp-dinp)/(xp+dinp))
++ rhop_n=max(1e-6,(xp-dinp_n)/(xp+dinp_n))
++ rhop_m=max(1e-6,(xp-dinp_m)/(xp+dinp_m))
++ rhos= max(1e-6,(xs-dins)/(xs+dins))
++ rhox= max(1e-6,(xp-dinx)/(xp+dinx))
+*
+* calculate length of primary, secondary, and composite spirals and underpass
++ plengthps= ((-6.62752*(pwp+psp)*pintp*(pintp-1))/2)+(pintp*((3.31376*(xp-pwp))-(0.4142*(pwp+psp))))+(pfractp/0.125)*(-0.82844*(pwp+psp)*pintp+(0.4142*(xp-pwp)))
++ slengthps= ((-6.62752*(pws+pss)*pints*(pints-1))/2)+(pints*((3.31376*(xs-pws))-(0.4142*(pws+pss))))+(pfracts/0.125)*(-0.82844*(pws+pss)*pints+(0.4142*(xs-pws)))
+* sum of perimeters of nested octagons plus additional length due to cross-overs
++ xoverlen= sqrt(pgap**2+(pwp+psx)**2)
+*
+* xlength includes center gap section and input launch gap portions +input launches
++ xlength= pceilx*(((xp-pwp)/2+(pwp+psx)*(1-(pceilx+1)/2))*6.6275-2*pgap)+2*pgap-pwp-5e-6+2*15e-6
+* xsplength includes extra length caused by crossovers
++ xsplength= xlength+2*(pceilx-1)*xoverlen
+*
++ plength= (pstack<=2)*plengthps+(pstack>2)*xlength/2
++ slength= (pstack<=2)*slengthps+(pstack>2)*xlength/2
++ splength= (pstack<=2)*plength+(pstack>2)*xsplength
+*
++ uplength= max(1e-6,(pstack<=1)*(pintp*((pintp+1)/pintsp*pwp+psp)))
+*
+* Calculate inductance of each level of the spiral
++ c1_coef=1.054786     // perimeter to circumference ratio of octagon vs circle--was 1.07
++ c2_coef=2.29         // 0.73*pi
++ c3_coef=0.0
++ c4_coef=0.19
++ c5_coef=min((np+2),(min((0.1*np+5.5),(0.05*np+6))))
++ c5_coef_n=min((pintp+2),(min((0.1*pintp+5.5),(0.05*pintp+6))))
++ c5_coef_m=min(((pintp+1)+2),(min((0.1*(pintp+1)+5.5),(0.05*(pintp+1)+6))))
+*
++ prindum= mu0*(np**2)*davgp*c1_coef/2*(log(c2_coef/rhop)+c3_coef*rhop+c4_coef*(rhop**2))
++ prindum_n=mu0*(pintp**2)*davgp_n*c1_coef/2*(log(c2_coef/rhop_n)+c3_coef*rhop_n+c4_coef*(rhop_n**2))
++ prindum_m=mu0*((pintp+1)**2)*davgp_m*c1_coef/2*(log(c2_coef/rhop_m)+c3_coef*rhop_m+c4_coef*(rhop_m**2))
++ seindum= mu0*(ns**2)*davgs*c1_coef/2*(log(c2_coef/rhos)+c3_coef*rhos+c4_coef*(rhos**2))
++ xindu= mu0*(nx**2)*davgx*c1_coef/2*(log(c2_coef/rhox)+c3_coef*rhox+c4_coef*(rhox**2))
+*
+* Calculate primary and secondary inductances for single turn symmetric spirals
++ prindus= 1e-7*2*splength/2*(log((splength)/(pwp+spt))+.50049+((pwp+spt)/(3*splength/2)))
++ seindus= 1e-7*2*splength/2*(log((splength)/(pwp+spt))+.50049+((pwp+spt)/(3*splength/2)))
++ prindu= (np>=1)*prindum+(np<1)*prindus
++ prindu_n=(np>=1)*prindum_n+(np<1)*prindus
++ prindu_m=(np>=1)*prindum_m+(np<1)*prindus
++ seindu= (ns>=1)*seindum+(ns<1)*seindus
+*
+* correction coefficients to account for metal width, thickness, space (for N=1 case) and fractional turn indcutance of single spirals
+* width correction coefficient
++ pwcor=(1/(1+(max(0,(200*pwp/xp)-8)*(0.0016+0.003/(pwp/(sp-delpr))))))
+* thickness correction coefficient
++ kthk=(np>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))*(min(0.1*np,(min((0.03*np+0.25),(0.005*np+0.4))))))
++ kthk_n=(np>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))*(min(0.1*pintp,(min((0.03*pintp+0.25),(0.005*pintp+0.4))))))
++ kthk_m=(np>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))*(min(0.1*(pintp+1),(min((0.03*(pintp+1)+0.25),(0.005*(pintp+1)+0.4))))))
++ cthk=max(1,((np>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))))*((0.020322*np-0.006444)*200*(pwp/xp)+min(1.4,(0.09644*np+1.02292))))
++ cthk_n=max(1,((pintp>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))))*((0.020322*pintp-0.006444)*200*(pwp/xp)+min(1.4,(0.09644*pintp+1.02292))))
++ cthk_m=max(1,(((pintp+1)>1)*(((psp/pwp)>0.5)*min(1,(2*(psp/pwp)-1))))*((0.020322*(pintp+1)-0.006444)*200*(pwp/xp)+min(1.4,(0.09644*(pintp+1)+1.02292))))
++ ptcor_num=0.434294481*log((c2_coef*deff)/(pww+cthk*spt))+kthk+((pww+cthk*spt)/(c5_coef*c2_coef*deff))
++ ptcor_num_n=0.434294481*log((c2_coef*deff_n)/(pww_n+cthk_n*spt))+kthk_n+((pww_n+cthk_n*spt)/(c5_coef_n*c2_coef*deff_n))
++ ptcor_num_m=0.434294481*log((c2_coef*deff_m)/(pww_m+cthk_m*spt))+kthk_m+((pww_m+cthk_m*spt)/(c5_coef_m*c2_coef*deff_m))
++ ptcor_den=0.434294481*log((c2_coef*deff)/(pww+cthk*1e-7))+kthk+((pww+cthk*1e-7)/(c5_coef*c2_coef*deff))
++ ptcor_den_n=0.434294481*log((c2_coef*deff_n)/(pww_n+cthk_n*1e-7))+kthk_n+((pww_n+cthk_n*1e-7)/(c5_coef_n*c2_coef*deff_n))
++ ptcor_den_m=0.434294481*log((c2_coef*deff_m)/(pww_m+cthk_m*1e-7))+kthk_m+((pww_m+cthk_m*1e-7)/(c5_coef_m*c2_coef*deff_m))
++ ptcor=ptcor_num/ptcor_den
++ ptcor_n=ptcor_num_n/ptcor_den_n
++ ptcor_m=ptcor_num_m/ptcor_den_m
++ pn1scor=(1-((np==1)*(max(0,(1.25*psp/pwp-0.25)))*(0.001981466*(200*pwp/xp)-0.00159133)))
++ pn1scor_n=(1-((pintp==1)*(max(0,(1.25*psp/pwp-0.25)))*(0.001981466*(200*pwp/xp)-0.00159133)))
++ pn1scor_m=(1)
++ pcor=(pwcor*ptcor*pn1scor)
++ pcor_n=(pwcor*ptcor_n*pn1scor_n)
++ pcor_m=(pwcor*ptcor_m*pn1scor_m)
++ pfcor=(0.995+((np<2)*1+(np>2)*1.5/np)*(0.4375+0.5625*psp/pwp)*(pwp/xp*(0.63*(1+0.9*(spt/xp)))))
++ prindn=prindu_n*pcor_n
++ prindm=prindu_m*pcor_m
++ prindavg=pfractp*prindm+(1-pfractp)*prindn
++ prindb=prindavg*(max(pfractp==0,(pfractp>0)*pfcor))
+* hardware correction
++ pscale1p5delta= min(0.13,(0.07+0.3*pwp/xp))
++ pscaleturnwt= ((np==1.0)*0.0)+((np==1.25)*0.45)+((np==1.5)*0.8)+((np==1.75)*0.45)+((np==2.0)*0.0)+((np==2.5)*0.2)
++ pscaleind= 1+pscale1p5delta*pscaleturnwt
+* 0.0144 added to pscale for pstack 2 3 4 due to C1_coef change
++ pscale= (pstack==0)*pscaleind+\
+  (pstack==1)*pscaleind+\
+  (pstack==2)*min((1.0044-spt*1e4),(0.8544+np*xp*4e-4/spt))+\
+  (pstack==3)*min((1.0044-spt*1e4),(0.8544+nx*xp*4e-4/spt))+\
+  (pstack==4)*min((1.0044-spt*1e4),(0.8544+nx*xp*4e-4/spt))
++ poffset=0  // Pre width and thickness correction eq. min(0.02e-9,0.1e-9*np-0.13e-9)*(pstack==0)+0.025e-9*(pstack==1)
++ pscale2=1-(0.016*(((pmsxt+4e-6 +((wireopt==213)*((pstack==0)+(pstack==3))*6e-6))/(xp))**(-1.35)))
+*+ pscale2=1-(0.016*((waferthk/(xp))**(-1.35)))
++ prind= prindb*pscale*pscale2+poffset
++ seind= seindu*pscale*pscale2+poffset
++ xind= xindu*pscale*pscale2+poffset
+*
+* calculate series stacked inductance
+*  + pksr= min(0.99,0.24*log10(prindu*1e9)+0.54)    // DM fit
+*  + pksr= min(0.99,0.15*log10(prindu*1e9)+0.69)    // AM fit
++ pdrosa= (spt+secprt)*1e6                          // center to center pri to sec for general fit
++ pkdelta= (0.0406*pdrosa+0.15)                     // 1-K at 1 nH L1 pri
++ pksr= min(0.88,0.5*pkdelta*log10(prindu*1e9)+(1-pkdelta))  // K vs L1
++ msr= pksr*prindu                                  // M=K*L1
++ psrind= (2*prindu+2*msr)*1.0144                   // L=(L1+L2+2*M)*C1cor
+*
+* Calculate inductance of underpass (taking into account thickness effects)
++ upl= (pstack>=2)*1e-12+(pstack<=1)*(1e-7*2*uplength*(log((2*uplength)/(pwup+upt))+.50049+((pwup+upt)/(3*uplength))))
++ upind= upl*pscale*pscale2
+*
+*******************************************************************************
+* Calculate parameters to determine skin/proximity effect effect networks
+*******************************************************************************
+*
+* radius of circular cross section with equivalent self inductance
++ prad1= 0.2235*(pwp+spt)/0.7788
+* maximum frequency of interest is 40GHz
++ pwmax= 2*pi*40e9
+* effective resistivity of spiral
++ prho= ((pstack==1)*(prrs*sers/(prrs+sers))+((pstack==0)*1+(pstack>2))*prrs+(pstack==2)*((prrs+sers)/2))*spt
+* conductivity of line
++ pcondtl= 1/prho
+* DC resistance of rectangular cross-section line (only use length of spiral, not underpasses)
++ prdcrect= prho*((pstack<3)*plength+(pstack>2)*xlength/2)/(pwp*spt)
+* DC resistance of equivalent (for inductance) circular cross-section (only use length of spiral, not underpasses)
++ prdc= prho*((pstack<3)*plength+(pstack>2)*xlength/2)/(pi*prad1**2)
+* skin depth at highest frequency of interest
++ pdeltamax= sqrt(2/(pwmax*mu0*pcondtl))
+* partitioning coefficient based on skin depth  and equivalent outer radius
++ palphar= 0.53*prad1/pdeltamax
+* resistance partitioning coefficient based on palphar and the following relationships:
+* R1=resistance of outer annulus=palphar*Rdc
+* R2=R1/RR
+* R3=R2/RR==R1/RR^2 ....
+* Partitioning the cross-section into three subsections requires solving for the roots of:
+* RR^2+RR+(1-PALPHAR)=0, so that the parallel resistance is equivalent to Rdc.
+* The quadratic equation is used to extract the maximum root of the equation to determine RR
++ prr= (sqrt(1-4*(1-palphar))-1)/2
+* resistance of each partition
++ pres1= (1+0.001013*(((pmsxt+4e-6 +((wireopt==213)*((pstack==0)+(pstack==3))*6e-6))/(xp))**(-3.813)))*palphar*prdc
+*+ pres1= (1+0.001013*((waferthk/(xp))**(-3.813)))*palphar*prdc
++ pres2= pres1/prr
++ pres3= pres2/prr
+* areas of two annuli and central cross-section based on the resistance constraints
++ parea1= prho*plength/pres1
++ parea2= prho*plength/pres2
++ parea3= prho*plength/pres3
+* outer radii of second annulus and inner circular cross-section
++ prad2= sqrt((parea2+parea3)/pi)
++ prad3= sqrt(parea3/pi)
+* ratios of inner/outer radii for two annuli
++ pratio1= prad2/prad1
++ pratio2= prad3/prad2
+* coefficients used to calculate the self inductance of each annulus
++ plnez1= -0.1067*pratio1**4+0.3742*pratio1**3-0.5160*pratio1**2-0.0017*pratio1+0.2501
++ plnez2= -0.1067*pratio2**4+0.3742*pratio2**3-0.5160*pratio2**2-0.0017*pratio2+0.2501
+*
+*******************************************************************************
+* Proximity effect network empirical scaling coefficients
+*******************************************************************************
+*
+* Single Level:     turn off proximity effect network for less than 2 turn spirals
+* Parallel Stacked: proximity effect stays on all the time due to extra metal thickness
+* Series Stacked: proximity effect stays on all the time due to enhanced magnetic field
+* M1 groundplane: proximity effect turned on all the time
++ nsp= (pstack<2)*np+(pstack>2)*nx
++ proxim= (pgrnd==8)*1+(pgrnd==6)*(min(1,((pstack==0)*1+(pstack==3)*1)*((nsp>=1.5)+(nsp<1.5)*0.001)+(pstack==1)*1+(pstack==4)*1+(pstack==2)*1))
+*
+* empirical correction factor for Lrfdc in proximity effect network (multiplied by spiral effective inductance)
+* L1=L2=Lrfdc*2  (parallel combination)
+* This parameter essentially describes the inductance variation due to proximity effect
+* a value of 0.2 indicates a 20% reduction over frequency
++ plscrf= ((pstack<=1)*1+(pstack>2)*1)*min(plscrfmax,(plscrfa*(min(0,hp-0.95))**2+plscrfb)*proxim)+(pstack==2)*(slscrfa*hp+slscrfb)
+*
+* empirical correction factor for R1 in proximity effect network (multiplied by spiral RDC)
+* This parameter sets the minimum DC resistance of the proximity effect matrix or, conversely,
+* it sets the percentage of the overall DC resistance that is prone to proximity effect variation
++ prscrf= min(prscrfmax,max(prscrfmin,prscrfa*hgen+prscrfb))*proxim
+*
+*******************************************************************************
+* ...back to skin effect network calculations
+*******************************************************************************
+* empirical scale factors to adjust overall inductance and resistance due to skin/proximity effect networks
++ plscale= 1-plscrf
++ prscale= 1-prscrf
+* self inductance of each partition
++ pl1= plscale*2e-7*plength*(log(2*plength/prad1)+plnez1-1)
++ pl2= plscale*2e-7*plength*(log(2*plength/prad2)+plnez2-1)
++ pl3= plscale*2e-7*plength*(log(2*plength/prad3)-0.75)
+* geometric mean distances between the three partitions
++ pgmd13= exp((prad1**2*log(prad1)-prad2**2*log(prad2))/(prad1**2-prad2**2)-0.5)
++ pgmd12= pgmd13
++ pgmd23= exp((prad2**2*log(prad2)-prad3**2*log(prad3))/(prad2**2-prad3**2)-0.5)
+* mutual inductances between the three partitions
++ pm12= plscale*2e-7*plength*(log(plength/pgmd12+sqrt(1+plength**2/pgmd12**2))-sqrt(1+pgmd12**2/plength**2)+pgmd12/plength)
++ pm13= plscale*2e-7*plength*(log(plength/pgmd13+sqrt(1+plength**2/pgmd13**2))-sqrt(1+pgmd13**2/plength**2)+pgmd13/plength)
++ pm23= plscale*2e-7*plength*(log(plength/pgmd23+sqrt(1+plength**2/pgmd23**2))-sqrt(1+pgmd23**2/plength**2)+pgmd23/plength)
+* coupling coefficients between the three partitioned inductances
++ pk12= min(0.99,pm12/sqrt(pl1*pl2))
++ pk13= min(0.99,pm13/sqrt(pl1*pl3))
++ pk23= min(0.99,pm23/sqrt(pl2*pl3))
+* resistance of each partition transformed back into cross-sectional shape
++ pr1= pres1*prdcrect/prdc*prscale
++ pr2= pres2*prdcrect/prdc*prscale
++ pr3= pres3*prdcrect/prdc*prscale
+*
+* calculate extra inductance beyond self inductance for complete spiral
++ plcalc=(1e-7*2*plength*(log((2*plength)/(pwp+spt))+.50049+((pwp+spt)/(3*plength))))
+* for small, single turn spirals, self inductance may be more than total inductance
++ plratio= ((pstack<=1)*1+(pstack>2))*prind/plcalc+(pstack==2)*psrind/2/plcalc
++ plextps= (plratio>=1)*((pstack<=1)*(prind-plcalc)+(pstack==2)*(psrind-2*plcalc)/2)
++ plextx= (plratio>=1)*(prind-plcalc)
++ plext= (pstack<=2)*plextps+(pstack>2)*plextx
+* scale all inductances in the case that the self inductance is greater than the total spiral inductance
++ pscsm= (plratio*10>=10)*1+(plratio*10<10)*plratio
+* calculate mutual inductance between two halves of spiral if series stacked
++ pmpsps= psrind/2-plcalc-plext
++ pmpsx= (plratio>=1)*((plratio-1)/plratio*(xind/2-prind))
++ pmps= (pstack==2)*pmpsps+(pstack>2)*pmpsx
+* coupling coefficient derived from above mutual inductance
++ pkps= (plext*1e12>0)*pmps/max(plext,1e-15)
+*
+* coupling coefficient between primary and secondary for symmetric spirals
++ pmskx= (pstack>2)*(1/plratio*(xind/2-prind))
+*
+**************Primary to Secondary Coupling Coefficient Calculation************
+*
++ pkps11= min(0.99,pmskx/sqrt(pl1*pl1))
++ pkps22= min(0.99,pmskx/sqrt(pl2*pl2))
++ pkps33= min(0.99,pmskx/sqrt(pl3*pl3))
++ pkps12= min(0.99,pmskx/sqrt(pl1*pl2))
++ pkps13= min(0.99,pmskx/sqrt(pl1*pl3))
++ pkps23= min(0.99,pmskx/sqrt(pl2*pl3))
+*
+*******************************************************************************
+* network to add proximity effect resistance and inductance
+*******************************************************************************
+*
++ plrfdc= ((pstack<=1)*1+(pstack>=2)*2)*plcalc*pscsm*plscrf
++ pb= 1
++ prrf1= prscrf*prdcrect
+*
+* empirical correction factor to determine the ratio between R2 and R1 in the proximity effect network
+* hollowness h=.2->.9:
+* This parameter sets the upper end of the resistance variation with frequency for the proximity effect matrix
++ pa03= ((pstack==0)*1+(pstack==3)*1)*min(pamax,paa*(min(0,hgen-0.9))**3+pab)
++ pa14= ((pstack==1)*1+(pstack==4)*1)*min(pamax,paa*hgen**(-3)+pab)
++ pa2_c= (pstack==2)*min(pamax,paa*min(0,hgen-0.9)**2+pab)
++ pa= pa03+pa14+pa2_c
+*
+* empirical correction factor controlling resistance and inductance of additional proximity effect network leg
+* hollowness h=.2->.9:
+* additional R-L leg to proximity effect network when needed
++ prf= prfb
++ ppow= ppowa*hgen+ppowb
+*
++ plrf1= plrfdc*(pa+1)**2/(pa**2+pb)
++ plrf2= pb*plrf1
++ plrf3= pb*plrf2
++ prrf2= prrf1*pa
++ prrf3= prrf1*(pa**ppow)
+*
+**************************************************************************
+* Calculate M1 groundplane resistance
+**************************************************************************
+* width of groundplane fingers
++ pfwidth= 0.8e-6
+* pitch of groundplane fingers
++ pfpitch= 3e-6
+* 1/2 length of side of octagon with diemater equal to average diameter of spiral
+* this is used to determine number of full length fingers in groundplane comb
++ psoct2= davgp*0.207
++ pnsoct2= psoct2/pfpitch
+* length of rest of centerline connection out to external tap
+* this is used to determine number and average length of the remaining fingers in the comb
++ psrest= davgp/2-psoct2
++ pnsrest= psrest/pfpitch
+* fingers of varying length have a constant length and a varying length component
++ psrestavg= psoct2+psrest/2
+* total resistance contributed by full length fingers in 1/4 groundplane
++ proct2= psoct2/pfwidth*gprs/pnsoct2
+* total resistance contributed by varying length fingers in 1/4 groundplane
++ proctrest= psrestavg/pfwidth*gprs/pnsrest
+* total groundplane resistance including contribution from all four quadrants
+* Empirical multiplier on groundplane resistance based on data
++ prgptotal= prgptb*0.25*(proct2*proctrest/(proct2+proctrest))
+**************************************************************************
+* Calculate length of outer, and inner turns
+**************************************************************************
+*
++ outerlenpps= 3.31376*(xp-pwp)-0.4142*(pwp+psp)
++ outerlensps= 3.31376*(xs-pws)-0.4142*(pws+pss)
++ outerlenx= 3.31376*xp
++ outerlenp= (pstack<=2)*outerlenpps+(pstack>2)*outerlenx
++ outerlens= (pstack<=2)*outerlensps+(pstack>2)*outerlenx
+*
++ innerlenpps= max(0,(np>=2)*(3.31376*((dinp+3*pwp+psp)-pwp)-0.4142*(pwp+psp))+(np<2)*pfractp*(3.31376*((dinp+3*pwp+psp)-pwp)-0.4142*(pwp+psp))-30e-6)
++ innerlensps= max(0,(ns>=2)*(3.31376*((dins+3*pws+pss)-pws)-0.4142*(pws+pss))+(ns<2)*pfracts*(3.31376*((dins+3*pws+pss)-pws)-0.4142*(pws+pss))-30e-6)
++ innerlenx= 3.31376*(xp-(pceilx-1)*(pwp+psx)-pwp)
++ innerlenp= (pstack<=2)*innerlenpps+(pstack>2)*innerlenx
++ innerlens= (pstack<=2)*innerlensps+(pstack>2)*innerlenx
+*
+**************************************************************************
+* Calculate substrate resistances and capacitances
+**************************************************************************
+*
++ condsi= condsib/rsx
+*
+* equations used in calculating Rsx and Csx
+* for embedded turns
++ hoverwe= sxthk/pwp
+* width ov outer and inner turns assumed to be wider to electric field spreading out
++ hoverwo= sxthk/(pwp+2*spt)
+*
+* fhw is calculated from fhwl and fhwg as follows:
+*
+*    IF hoverw<1 THEN  fhw=fhwl
+*                ELSE  fhw=fhwg
+*    END IF
+* for embedded turns
++ fhwle= 1/((1/hoverwe)+2.42-(0.44*hoverwe)+(1-hoverwe)**6)
++ fhwge= 1/(2*pi)*log((8*hoverwe)+(0.25/hoverwe))
++ fhwe= (hoverwe<1)*fhwle+(hoverwe>=1)*fhwge
++ eeffe= ((ersi+1)/2)+((ersi-1)/(2*sqrt(1+(10*hoverwe))))
+* for outer and inner turns
++ fhwlo= 1/((1/hoverwo)+2.42-(0.44*hoverwo)+(1-hoverwo)**6)
++ fhwgo= 1/(2*pi)*log((8*hoverwo)+(0.25/hoverwo))
++ fhwo= (hoverwo<1)*fhwlo+(hoverwo>=1)*fhwgo
++ eeffo= ((ersi+1)/2)+((ersi-1)/(2*sqrt(1+(10*hoverwo))))
+*
+* calculate ratio of (outer+inner)/total spiral length for weighting factor of hoverw and eeff and fhw
++ subratio= min(1,(outerlenp+innerlenp)/splength)
++ hoverw= (subratio*hoverwo+hoverwe*(1-subratio))/subratio
++ eeff= (subratio*eeffo+eeffe*(1-subratio))/subratio
++ fhw= (subratio*fhwo+fhwe*(1-subratio))/subratio
+*
+* calculate substrate resistance and capacitance
+* empirical substrate resistance correction:
++ rsxcorr= (pgrnd==6)*rsxcorrb+(pgrnd==8)
+* empirical substrate capacitance correction:
++ csxcorr0134= (pgrnd==6)*((pstack<=1)*1+(pstack>2)*1)*min(csxcormax,csxcorra*splength*1e6+csxcorrb)
++ csxcorr2= (pgrnd==6)*(pstack==2)*min(csxcormax,csxcorra*plength*1e6+csxcorrb)
++ csxcorr= max(0.01,csxcorr0134+csxcorr2)
++ psxosplps= ((pstack<=1)*1+(pstack>2)*1)*(1/posplps)+(pstack==2)*(1/sosplps)           // posplps at each port for single, sosplps at outer turns (series)
++ psxisplps= ((pstack<=1)*1+(pstack>2)*1)*(1/(0.5-posplps))+(pstack==2)*(1/(1-sosplps)) // (0.5-posplps) (twice) for middle, (1-sosplps) (twice) at inner turns (series)
++ psxosplx= ((pstack<=1)*1+(pstack>2)*1)*(1/posplx)                                     // posplx at each port for single
++ psxisplx= ((pstack<=1)*1+(pstack>2)*1)*(1/(0.5-posplx))                               // (0.5-posplx) (twice) for middle
++ psxospl= (pstack<=2)*psxosplps+(pstack>2)*psxosplx
++ psxispl= (pstack<=2)*psxisplps+(pstack>2)*psxisplx
++ pcsxoutp= csxcorr*splength/psxospl*e0*eeff/fhw
++ pcsxinp= csxcorr*splength/psxispl*e0*eeff/fhw
++ prsxoutp= rsxcorr*((pgrnd==6)*1/((splength/psxospl*condsi*(1+(1/sqrt(1+(10*hoverw)))))/(2*fhw))+(pgrnd==8)*prgptotal*psxospl)
++ prsxinp= rsxcorr*((pgrnd==6)*1/((splength/psxispl*condsi*(1+(1/sqrt(1+(10*hoverw)))))/(2*fhw))+(pgrnd==8)*prgptotal*psxispl)
++ pcsxouts= csxcorr*splength/psxospl*e0*eeff/fhw
++ pcsxins= csxcorr*splength/psxispl*e0*eeff/fhw
++ prsxouts= rsxcorr*((pgrnd==6)*1/((splength/psxospl*condsi*(1+(1/sqrt(1+(10*hoverw)))))/(2*fhw))+(pgrnd==8)*prgptotal*psxospl)
++ prsxins= rsxcorr*((pgrnd==6)*1/((splength/psxispl*condsi*(1+(1/sqrt(1+(10*hoverw)))))/(2*fhw))+(pgrnd==8)*prgptotal*psxispl)
+*
+* groundplane resistance temperature coeffcient
++ trgrnd= (pgrnd==6)*trsx+(pgrnd==8)*tgprs
+**************************************************************************
+* Calculate M1 groundplane centertap resistance
+**************************************************************************
+*
+* width of groundplane centerline connection
++ pwtap= 5e-6
+* Average centerline resistance for all fingers
++ prm1ct= (pgrnd==8)*(xp/2/pwtap*ctrs)+(pgrnd==6)*1e-5
+*
+**************************************************************************
+* Calculate all of the line capacitances
+**************************************************************************
+*
+* total line capacitance between secondary spiral and substrate in (F/m)
+* when the line has adjacent lines on both sides
+* (empirical scaling factor)
++ pcmses= pcmsesb*(cses*pws+2*cmsesf)
+*
+* total line capacitance between primary spiral and substrate in (F/m)
+* when the line has adjacent lines on both sides
+* (empirical scaling factor)
++ pcmprs= pcmprsb*(cprs*pwp+2*cmprsf)
+*
+* extra fringing capacitance between secondary spiral and substrate in (F/m)
+* for the innermost and outermost turns due to lack of adjacent lines
+* (empirical scaling factor0
++ pcofses= pcofsesb*csesf-cmsesf
+*
+* extra fringing capacitance between primary spiral and substrate in (F/m)
+* for the innermost and outermost turns due to lack of adjacent lines
+* (empirical scaling factor0
++ pcofprs= pcofprsb*cprsf-cmprsf
+*
+* total line capacitance between underpass and substrate in (F/m)
++ pcus= cus*pws+2*cusf
+*
+* total line capacitance between primary and secondary lines in (F/m)
+* when the line has an adjacent line on one side and no line on the other side
+* (empirical scaling factor)
++ pcoprse= pcoprseb*(cprse*pwp+cprsef+cmprsef)
+*
+* total line capacitance between primary and secondary lines in (F/m)
+* when the line has adjacent lines on both sides
+* (empirical scaling factor)
++ pcmprse= pcmprseb*(cprse*pwp+2*cmprsef)
+*
+* spiral to underpass cross cap for turns surrounded on both sides (F/m)
++ pcmspu= cpru*pwp+(pstack<=2)*2*cmpruf
+*
+* spiral to underpass cross cap for outermost and innermost turns (F/m)
++ pcospu= cpru*pwp+(pstack>2)*(((pstack==0)*1+(pstack==2)*1)*(cpruf+cmpruf)+2*(pstack==1)*cmpruf)
+*
+* spiral to underpass cross cap in the case of a less than two turn spiral(F/m)
++ pcxspu= cpru*pwp+2*((pstack==0)+(pstack==2))*cpruf+2*(pstack==1)*cmpruf
+*
+* spiral to underpass cross cap for turns surrounded on both sides (F/crossing)
++ pcptm= pcmspu*pwu
+*
+* spiral to underpass cross cap for outermost and innermost turns (F/crossing)
++ pcpte= pcospu*pwu
+*
+* spiral to underpass cross cap in the case of a less than two turn spiral (F/crossing)
++ pcptx= pcxspu*pwu
+*
+**************************************************************************
+* Calculate spiral to substrate oxide capacitances
+**************************************************************************
++ pcoxosplps= ((pstack<=1)*1+(pstack>2)*1)*(1/posplps)+(pstack==2)*(1/sosplps)           // posplps at each port for single, sosplps at outer turns (series)
++ pcoxisplps= ((pstack<=1)*1+(pstack>2)*1)*(1/(0.5-posplps))+(pstack==2)*(1/(1-sosplps)) // (0.5-posplps) (twice) for middle, (1-sosplps) (twice) at inner turns (series)
++ pcoxosplx= ((pstack<=1)*1+(pstack>2)*1)*(1/posplx)                                     // posplx at each port for single
++ pcoxisplx= ((pstack<=1)*1+(pstack>2)*1)*(1/(0.5-posplx))                               // (0.5-posplx) (twice) for middle
++ pcoxospl= (pstack<=2)*pcoxosplps+(pstack>2)*pcoxosplx
++ pcoxispl= (pstack<=2)*pcoxisplps+(pstack>2)*pcoxisplx
+*
+* for series stack includes additional area capacitance between primary and substrate where it is not shielded by secondary
++ pcoxoutp= (splength*pcmprs+pcofprs*(innerlenp+outerlenp))/pcoxospl+(pstack==2)*(1/8*outerlenp*(cprs*pwp+cprsf+cmprsf))
+*
++ pcoxouts= (splength*pcmses+pcofses*(innerlenp+outerlenp))/pcoxospl+(pstack<=1)*(2*(pgrnd==6)+(pgrnd==8))*pcus*uplength
+*
++ pcoxinp= (splength*pcmprs+pcofprs*(innerlenp+outerlenp))/pcoxispl+(pstack==2)*(1/2*innerlenp*(cprs*pwp+cprsf+cmprsf))
+*
++ pcoxins= (splength*pcmses+pcofses*(innerlenp+outerlenp))/pcoxispl
+*
+* Calculate the resistance of the underpass and the vias to the spiral
++ pxvias= max(1,int((pwp-2e-6+4e-6)/4e-6))
++ pyvias= 1
+* maximum via metal resistivity
++ pviarho= 1.5e-7
+* total resistance=viaRho*viaHeight/viaArea
++ prvias= pviarho*4e-6/(pxvias*pyvias*1.24e-6*max(5e-6,(pwp/2-2e-6)))
++ prups= uplength/pwup*uprs+prvias-((pstack==1)*prvias)
++ prux= (pceilx-1)*(xoverlen/pwp*prrs+xoverlen/pwup*uprs)+(pstack==3)*(pceilx-1)*2*prvias
++ pruse= max(1e-5,(pstack<=2)*prups+(pstack>2)*prux/2)
++ prupr= max(1e-5,(pstack>2)*prux/2)
+*
+**************************************************************************
+* Calculate Turn-to-Turn capacitance
+**************************************************************************
+* Capacitance between outer turn of primary and inner turn of secondary
++ pcopisps= (pstack<=1)*((plength-innerlenp)*cprpr/2)+(pstack==2)*max(1f,(plength-outerlenp-innerlenp)*cprpr)
+* turn to turn capacitance (minus outerlength) plus all crossovers except one. total divided by 2
++ pcopisx= max(1e-15,(pceilx>1)*(((splength-innerlenx-outerlenx/2)*cprpr+(pceilx-1)*pcptx)/2))
++ pcopis= (pstack<=2)*pcopisps+(pstack>2)*pcopisx
+* Capacitance between outer turn of secondary and inner turn of secondary
++ pcosisps= (pstack<=1)*((plength-innerlenp)*cprpr/2)+(pstack==2)*max(1f,(slength-outerlens-innerlens)*csese)
+* turn to turn capacitance (minus outerlength) plus all crossovers except one. total divided by 2
++ pcosisx= max(1e-15,(pceilx>1)*(((splength-innerlenx-outerlenx/2)*cprpr+(pceilx-1)*pcptx)/2))
++ pcosis= (pstack<=2)*pcosisps+(pstack>2)*pcosisx
+* Capacitance between outer turn of primary and outer turn of secondary
++ pcoposps= (pstack<=1)*((pintp<3)*pintp*pcptx+(pintp>=3)*(2*pcpte+(pintp-2)*pcptm))+(pstack==2)*((7/8*outerlenp+innerlenp/2)*pcoprse+(plength-outerlenp-innerlenp)*pcmprse)
+* turn to turn capacitance for outermost turn plus one crossing capacitance
+* (empirical scaling coefficient)
++ pcoposx= pcoo*max(1e-15,(pceilx>1)*(outerlenx/2*cprpr+pcptx))
++ pcopos= pcoo*((pstack<=2)*pcoposps+(pstack>2)*pcoposx)
+* Empirical capacitance multiplier for outer to inner capacitances (copis, cosis)
++ pcoips= (hp**(2-(pstack==2)))/1.5
++ pcoix= 1
++ pcoi= pcoo*((pstack<=2)*pcoips+(pstack>2)*pcoix)
+*
+* element multiplier for series spirals or single spirals
+* (divide each element by 2 for single spirals, leave unscaled for series stacked or symmetric spirals)
++ ltype= 2-(pstack>1)
+*
+* additional coupled inductances network (lump underpass into secondary)
+lpra outpr au1     inductor  l= max((plext/ltype),1f)
+lsea inse au2      inductor  l= max((plext/ltype+upind),1f)
+ruppr au1 a1       resistor  r= prupr               tc1=tuprs trise=pdtemp
+rupse au2 a2       resistor  r= pruse               tc1=tuprs trise=pdtemp
+kpsa mutual_inductor ind1=lpra ind2=lsea coupling=pkps
+*
+* proximity effect network "primary"
+lprf1 a1 rpf1      inductor  l= max((plrf1*proxim/2),1f)
+rprf1 rpf1 ap1     resistor  r= prrf1*proxim/2      tc1=tsprs trise=pdtemp
+lprf2 a1 rpf2      inductor  l= max((plrf2*proxim/2),1f)
+rprf2 rpf2 ap1     resistor  r= prrf2*proxim/2      tc1=tsprs trise=pdtemp
+lprf3 a1 rpf3      inductor  l= max((plrf3*proxim/2*prf),1f)
+rprf3 rpf3 ap1     resistor  r= prrf3*proxim/2/prf  tc1=tsprs trise=pdtemp
+*
+* skin effect network "primary"
+rpr1a ap1 a11      resistor  r= pr1/ltype           tc1=tsprs trise=pdtemp
+rpr2a ap1 a12      resistor  r= pr2/ltype           tc1=tsprs trise=pdtemp
+rpr3a ap1 a13      resistor  r= pr3/ltype           tc1=tsprs trise=pdtemp
+lpr1a a11 inpr     inductor  l= max((pl1/ltype*pscsm),1f)
+lpr2a a12 inpr     inductor  l= max((pl2/ltype*pscsm),1f)
+lpr3a a13 inpr     inductor  l= max((pl3/ltype*pscsm),1f)
+k12pra mutual_inductor ind1=lpr1a ind2=lpr2a coupling=pk12
+k13pra mutual_inductor ind1=lpr1a ind2=lpr3a coupling=pk13
+k23pra mutual_inductor ind1=lpr2a ind2=lpr3a coupling=pk23
+*
+* proximity effect network "secondary"
+lsrf1 a2 rsf1      inductor  l= max((plrf1*proxim/2),1f)
+rsrf1 rsf1 as2     resistor  r= prrf1*proxim/2      tc1=tsprs trise=pdtemp
+lsrf2 a2 rsf2      inductor  l= max((plrf2*proxim/2),1f)
+rsrf2 rsf2 as2     resistor  r= prrf2*proxim/2      tc1=tsprs trise=pdtemp
+lsrf3 a2  rsf3     inductor  l= max((plrf3*proxim/2*prf),1f)
+rsrf3 rsf3 as2     resistor  r= prrf3*proxim/2/prf  tc1=tsprs trise=pdtemp
+*
+* skin effect network "secondary"
+rse1a as2 a21      resistor  r= pr1/ltype           tc1=tsprs trise=pdtemp
+rse2a as2 a22      resistor  r= pr2/ltype           tc1=tsprs trise=pdtemp
+rse3a as2 a23      resistor  r= pr3/ltype           tc1=tsprs trise=pdtemp
+lse1a a21 outse    inductor  l= max((pl1/ltype*pscsm),1f)
+lse2a a22 outse    inductor  l= max((pl2/ltype*pscsm),1f)
+lse3a a23 outse    inductor  l= max((pl3/ltype*pscsm),1f)
+k12sea mutual_inductor ind1=lse1a ind2=lse2a coupling=pk12
+k13sea mutual_inductor ind1=lse1a ind2=lse3a coupling=pk13
+k23sea mutual_inductor ind1=lse2a ind2=lse3a coupling=pk23
+*
+* primary to secondary coupling coefficients
+k11prse mutual_inductor ind1=lpr1a ind2=lse1a coupling=pkps11
+k12prse mutual_inductor ind1=lpr1a ind2=lse2a coupling=pkps12
+k13prse mutual_inductor ind1=lpr1a ind2=lse3a coupling=pkps13
+k21prse mutual_inductor ind1=lpr2a ind2=lse1a coupling=pkps12
+k22prse mutual_inductor ind1=lpr2a ind2=lse2a coupling=pkps22
+k23prse mutual_inductor ind1=lpr2a ind2=lse3a coupling=pkps23
+k31prse mutual_inductor ind1=lpr3a ind2=lse1a coupling=pkps13
+k32prse mutual_inductor ind1=lpr3a ind2=lse2a coupling=pkps23
+k33prse mutual_inductor ind1=lpr3a ind2=lse3a coupling=pkps33
+*
+* substrate loss networks
+copis outpr inse   capacitor c= pcoi*pcopis
+cosis outse inse   capacitor c= pcoi*pcosis
+copos outpr outse  capacitor c= pcopos
+coxoutp outpr 3    capacitor c= pcoxoutp
+coxinp inpr 4      capacitor c= pcoxinp
+csxoutp 3 gp       capacitor c= pcsxoutp
+csxinp 4 gp        capacitor c= pcsxinp
+rsxoutp 3 gp       resistor  r= prsxoutp   tc1=trgrnd trise=pdtemp
+rsxinp 4 gp        resistor  r= prsxinp    tc1=trgrnd trise=pdtemp
+coxouts outse 6    capacitor c= pcoxouts
+coxins inse 5      capacitor c= pcoxins
+csxouts 6 gp       capacitor c= pcsxouts
+csxins 5 gp        capacitor c= pcsxins
+rsxouts 6 gp       resistor  r= prsxouts   tc1=trgrnd trise=pdtemp
+rsxins 5 gp        resistor  r= prsxins    tc1=trgrnd trise=pdtemp
+*
+* groundplane center-tap
+rm1ct gp ref       resistor  r= prm1ct     tc1=tctrs trise=pdtemp
+*
+ends indstack
